@@ -1,0 +1,32 @@
+body {
+    background: #f0f0f0;
+    font-family: Arial, sans-serif;
+    text-align: center;
+}
+
+#game {
+    width: 700px;
+    margin: 0 auto;
+}
+
+.cards {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+
+.card {
+    width: 120px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: scale(1.1);
+}
+
+#result {
+    margin-top: 30px;
+    font-size: 24px;
+    font-weight: bold;
+}
