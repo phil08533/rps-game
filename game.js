@@ -11,8 +11,9 @@ let S = {
   tournamentMaxPlayers: 4, activeShopTab: 'passive-perks',
   oppCardCount: 0, activePerksRemaining: [], lbPeriod: 'alltime',
   searching: false, currentInviteId: null, opponentAvatar: null,
+  playTimeLimit: 0, tournamentBracket: null, tournamentCurrentRound: 0,
+  tournamentMatchScores: {},
 };
-let _prevDialVal = -1; // tracks previous draw-dial value for smooth animation
 
 // ── Card/Perk meta ────────────────────────────────────────────
 const CM = { rock: { e:'🪨', l:'Rock' }, paper: { e:'📄', l:'Paper' }, scissors: { e:'✂️', l:'Scissors' } };
@@ -33,7 +34,6 @@ function setAvatar(elId, avatarId, nameFallback) {
   const el = $(elId); if (!el) return;
   if (avatarId && avatarId.startsWith('Char')) {
     el.innerHTML = '';
-    // Don't overwrite existing classes like arena-avatar
     el.classList.add('graphic-avatar');
     el.classList.remove('f-avatar');
     el.style.backgroundImage = `url("avatars/${avatarId}/sprite.png")`;
@@ -42,6 +42,7 @@ function setAvatar(elId, avatarId, nameFallback) {
     el.classList.remove('graphic-avatar');
     el.classList.add('f-avatar');
     el.style.backgroundImage = 'none';
+    // Show first letter; CSS counteracts the scaleX(-1) flip for opponent arena avatar
     el.textContent = av(nameFallback);
   }
 }
@@ -121,40 +122,43 @@ function renderHand(dealCount = 0) {
   });
 }
 
-// ── Draw Dial ──────────────────────────────────────────────────
+// ── Draw Ticker (slot-machine spin beside character) ───────────
+let _dialSpinTimer = null;
 function updateDrawDial(count) {
-  const wrap = $('draw-dial-compact');
-  const strip = $('ddc-strip');
-  if (!wrap || !strip) return;
+  const badge = $('draw-ticker-badge');
+  const numEl = $('dtb-num');
+  if (!badge || !numEl) return;
 
-  // Match CSS digit height — 26px default, 24px on mobile, 30px on desktop
-  const DIGIT_H = parseInt(getComputedStyle(strip.firstElementChild).height) || 26;
+  // Clear any running spin
+  if (_dialSpinTimer) { clearInterval(_dialSpinTimer); _dialSpinTimer = null; }
 
-  // First reveal
-  wrap.style.display = 'flex';
+  badge.classList.remove('hidden');
+  badge.classList.remove('dial-pop');
+  badge.offsetHeight; // reflow
+  badge.classList.add('dial-pop');
 
-  if (_prevDialVal === -1) {
-    // No animation on first reveal — just set position
-    strip.style.transition = 'none';
-    strip.style.transform = `translateY(-${count * DIGIT_H}px)`;
-    strip.offsetHeight; // force reflow
-    _prevDialVal = count;
-  } else {
-    // Animate from previous value to new value
-    strip.style.transition = 'none';
-    strip.style.transform = `translateY(-${_prevDialVal * DIGIT_H}px)`;
-    strip.offsetHeight;
-    requestAnimationFrame(() => {
-      strip.style.transition = 'transform .65s cubic-bezier(.25,.46,.45,.94)';
-      strip.style.transform = `translateY(-${count * DIGIT_H}px)`;
-    });
-    _prevDialVal = count;
+  // Spin through random numbers quickly, then settle on final value
+  let spins = 0;
+  const maxSpins = 14 + Math.floor(Math.random() * 4);
+  function tick() {
+    numEl.classList.remove('spin-tick');
+    numEl.offsetWidth;
+    numEl.textContent = Math.floor(Math.random() * 8);
+    numEl.classList.add('spin-tick');
+    spins++;
+    const delay = spins < 8 ? 55 : 55 + (spins - 7) * 28; // accelerate then decelerate
+    if (spins < maxSpins) {
+      _dialSpinTimer = setTimeout(tick, delay);
+    } else {
+      // Settle on final value
+      numEl.classList.remove('spin-tick');
+      numEl.textContent = count;
+      numEl.classList.add('spin-settle');
+      setTimeout(() => numEl.classList.remove('spin-settle'), 350);
+      _dialSpinTimer = null;
+    }
   }
-
-  // Pop animation on the badge
-  wrap.classList.remove('dial-pop');
-  wrap.offsetHeight;
-  wrap.classList.add('dial-pop');
+  tick();
 }
 let _dSrc = -1;
 
@@ -181,16 +185,21 @@ function swapCards(a, b) {
 function playCard(i) {
   if (S.played || i < 0 || i >= S.myHand.length) return;
   S.played = true;
+  stopPlayTimer(); // cancel countdown when player acts
   document.querySelectorAll('.game-card').forEach((c, ci) => {
-    if (ci === i) c.classList.add('selected'); else c.classList.add('played');
+    if (ci === i) {
+      c.classList.add('card-exit'); // smooth slide-away animation
+    } else {
+      c.classList.add('played');    // dim others
+    }
   });
   $('game-status').textContent = '⏳ Waiting for opponent…';
   socket.emit('play_card', { cardIndex: i });
 }
 
-// ── Round result (overlay, keeping it simple but with perk messages) ──
 // ── Round result (Arena Clash System) ──
 function showRound(d) {
+  stopPlayTimer(); // hide countdown since round resolved
   const arena = $('table-area');
   // Clear only temporary cards/rings, keep the stage and feed
   const tempCards = arena.querySelectorAll('.table-card, .impact-ring, .table-result');
@@ -237,12 +246,12 @@ function showRound(d) {
         myCard.classList.add('anim-winner-slap');
         oppCard.classList.add('anim-loser-die');
         if (myAv) myAv.parentElement.classList.add('anim-winner-slap');
-        if (oppAv) oppAv.className = 'arena-avatar emote-death';
+        if (oppAv) oppAv.classList.add('emote-death');
       } else if (d.result === 'loss') {
         oppCard.classList.add('anim-winner-slap');
         myCard.classList.add('anim-loser-die');
         if (oppAv) oppAv.parentElement.classList.add('anim-winner-slap');
-        if (myAv) myAv.className = 'arena-avatar emote-death';
+        if (myAv) myAv.classList.add('emote-death');
       } else {
         myCard.style.transform = 'translateY(10px)';
         oppCard.style.transform = 'translateY(-10px)';
@@ -256,8 +265,15 @@ function showRound(d) {
       // Final Cleanup
       setTimeout(() => {
         myCard.remove(); oppCard.remove(); res.remove();
-        if(myAv) { myAv.className = 'arena-avatar'; myAv.parentElement.classList.remove('anim-winner-slap'); }
-        if(oppAv) { oppAv.className = 'arena-avatar'; oppAv.parentElement.classList.remove('anim-winner-slap'); }
+        // Restore avatars while preserving graphic-avatar/f-avatar classes
+        if(myAv) {
+          myAv.classList.remove('emote-death','anim-winner-slap');
+          myAv.parentElement.classList.remove('anim-winner-slap');
+        }
+        if(oppAv) {
+          oppAv.classList.remove('emote-death','anim-winner-slap');
+          oppAv.parentElement.classList.remove('anim-winner-slap');
+        }
 
         S.myScore=d.myScore; S.oppScore=d.opponentScore; S.round=d.round;
         S.myHand=d.newHand; S.played=false; S.activePerksRemaining=d.activePerksRemaining||[];
@@ -274,6 +290,7 @@ function showRound(d) {
 
 // ── Game over ─────────────────────────────────────────────────
 function showGO(d) {
+  stopPlayTimer();
   hideOv('overlay-round');
   const w=d.winner===d.playerData?.username, t=d.winner===null;
   $('go-emoji').textContent=w?'🏆':t?'🤝':'💀';
@@ -451,7 +468,14 @@ function renderTL(t) {
 
 // ── Socket Events ─────────────────────────────────────────────
 socket.on('connect', () => { const s=localStorage.getItem('rps_username'); if(s) socket.emit('register',{username:s}); });
-socket.on('registered', ({playerData,shop}) => { S.playerData=playerData; S.shop=shop; localStorage.setItem('rps_username',playerData.username); applySkin(playerData.equippedSkin); updMenu(); show('screen-menu'); });
+socket.on('registered', ({playerData,shop,isRejoin}) => {
+  S.playerData=playerData; S.shop=shop;
+  localStorage.setItem('rps_username',playerData.username);
+  applySkin(playerData.equippedSkin);
+  updMenu();
+  // Don't navigate to menu if this is a rejoin (game_start handles navigation)
+  if (!isRejoin) show('screen-menu');
+});
 socket.on('error', ({message}) => toast('⚠️ '+message));
 
 socket.on('room_created', ({code, inviteSent}) => {
@@ -484,18 +508,29 @@ socket.on('invite_declined', ({by}) => { toast(`${by} declined your invite.`); }
 
 socket.on('game_start', d => {
   S.myIndex=d.myIndex; S.myHand=d.myHand; S.opponentName=d.opponentName; S.opponentAvatar=d.opponentAvatar;
-  S.myScore=0; S.oppScore=0; S.round=1; S.maxRounds=d.maxRounds; S.played=false;
+  // Use server scores (for rejoin); default to 0 for new games
+  S.myScore=d.myScore||0; S.oppScore=d.opponentScore||0;
+  S.round=d.round||1; S.maxRounds=d.maxRounds||7; S.played=d.played||false;
   S.roomCode=d.room; S.isTournament=d.isTournament||false; S.tournamentCode=d.tournamentCode||null;
+  S.playTimeLimit=d.playTimeLimit||0;
   S.activePerksRemaining=d.activePerksRemaining||[]; S.searching=false;
-  _prevDialVal = -1;
+
   // Reset matchmaking UI
   $('btn-find-match').classList.remove('hidden');
   if ($('btn-play-bot')) $('btn-play-bot').classList.remove('hidden');
   $('matchmaking-status').classList.add('hidden');
-  // Hide draw dial for new game
-  const ddWrap = $('draw-dial-compact');
-  if (ddWrap) ddWrap.style.display = 'none';
 
+  // Hide draw ticker badge for new game
+  const badge = $('draw-ticker-badge');
+  if (badge) badge.classList.add('hidden');
+
+  // Show/hide bracket button based on tournament
+  const bktBtn = $('btn-view-bracket');
+  if (bktBtn) { if (S.isTournament) bktBtn.classList.remove('hidden'); else bktBtn.classList.add('hidden'); }
+
+  // Hide waiting overlay if visible
+  hideOv('overlay-tourn-waiting');
+  hideOv('overlay-bracket');
   hideOv('overlay-invite'); hideOv('overlay-round'); show('screen-game');
 
   // Arena Setup
@@ -648,7 +683,7 @@ socket.on('tournament_update', ({tournament}) => renderTL(tournament));
 socket.on('tournament_started', () => { $('tourn-lobby-status').textContent='⚡ Preparing your match…'; $('btn-start-tourn').classList.add('hidden'); });
 socket.on('tournament_round_start', ({round}) => toast(`🏆 Round ${round}!`));
 socket.on('tournament_over', ({champion,tournamentCoinsEarned,placement}) => {
-  hideOv('overlay-round');
+  hideOv('overlay-round'); hideOv('overlay-tourn-waiting');
   $('to-emoji').textContent=placement===1?'🏆':placement===2?'🥈':'🎮';
   $('to-title').textContent=placement===1?'Champion!':placement===2?'Runner-Up!':'Tournament Over';
   $('to-champion').textContent=`Champion: ${champion}`;
@@ -656,6 +691,118 @@ socket.on('tournament_over', ({champion,tournamentCoinsEarned,placement}) => {
   showOv('overlay-tourn-over');
   if(S.playerData?.username) socket.emit('register',{username:S.playerData.username});
 });
+
+// Tournament bracket viewer
+socket.on('tournament_bracket_update', ({bracket, currentRound}) => {
+  S.tournamentBracket = bracket;
+  S.tournamentCurrentRound = currentRound;
+  // Update live bracket view if open
+  if (!$('overlay-bracket').classList.contains('hidden')) renderBracket(bracket, 'bracket-view');
+  if (!$('overlay-tourn-waiting').classList.contains('hidden')) renderBracket(bracket, 'tourn-wait-bracket');
+});
+
+// Tournament match live scores (for bracket view)
+socket.on('tournament_match_score', ({matchIdx, roundIdx, scores}) => {
+  S.tournamentMatchScores = S.tournamentMatchScores || {};
+  S.tournamentMatchScores[`${roundIdx}-${matchIdx}`] = scores;
+  if (!$('overlay-bracket').classList.contains('hidden') && S.tournamentBracket) {
+    renderBracket(S.tournamentBracket, 'bracket-view');
+  }
+  if (!$('overlay-tourn-waiting').classList.contains('hidden') && S.tournamentBracket) {
+    renderBracket(S.tournamentBracket, 'tourn-wait-bracket');
+  }
+});
+
+// Tournament waiting room (you won, waiting for other matches)
+socket.on('tournament_waiting', ({bracket, currentRound, message}) => {
+  S.tournamentBracket = bracket; S.tournamentCurrentRound = currentRound;
+  $('tourn-wait-title').textContent = '⏳ Round Complete!';
+  $('tourn-wait-status').textContent = message || 'Waiting for other matches…';
+  renderBracket(bracket, 'tourn-wait-bracket');
+  // Show over game_over screen
+  showOv('overlay-tourn-waiting');
+});
+
+// Tournament play timer countdown
+socket.on('play_timer_start', ({seconds}) => {
+  startPlayTimer(seconds);
+});
+
+// Auto-played notification (server auto-played your card)
+socket.on('auto_played', ({card}) => {
+  if (card) toast(`⏰ Time's up! ${(CM[card]||{l:card}).l} auto-played.`);
+});
+
+function startPlayTimer(seconds) {
+  const timerEl = $('play-timer');
+  const barEl   = $('play-timer-bar');
+  const textEl  = $('play-timer-text');
+  if (!timerEl || !barEl || !textEl) return;
+  timerEl.classList.remove('hidden');
+  let remaining = seconds;
+  barEl.style.setProperty('--timer-pct', '100%');
+  textEl.textContent = `${remaining}s`;
+  if (window._playTimerInterval) clearInterval(window._playTimerInterval);
+  window._playTimerInterval = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(window._playTimerInterval);
+      timerEl.classList.add('hidden');
+      return;
+    }
+    const pct = Math.max(0, (remaining / seconds) * 100);
+    barEl.style.setProperty('--timer-pct', `${pct}%`);
+    textEl.textContent = `${remaining}s`;
+    if (remaining <= 3) textEl.style.color = 'var(--danger)';
+    else textEl.style.color = '';
+  }, 1000);
+}
+
+function stopPlayTimer() {
+  if (window._playTimerInterval) clearInterval(window._playTimerInterval);
+  const timerEl = $('play-timer');
+  if (timerEl) timerEl.classList.add('hidden');
+}
+
+function renderBracket(bracket, containerId) {
+  const container = $(containerId); if (!container) return;
+  container.innerHTML = '';
+  const roundNames = ['Round 1', 'Quarterfinals', 'Semifinals', 'Final', 'Grand Final'];
+  bracket.forEach((round, rIdx) => {
+    const roundEl = document.createElement('div');
+    roundEl.className = 'bracket-round';
+    const roundTitle = document.createElement('div');
+    roundTitle.className = 'bracket-round-title';
+    roundTitle.textContent = roundNames[rIdx] || `Round ${rIdx + 1}`;
+    roundEl.appendChild(roundTitle);
+    round.forEach((match, mIdx) => {
+      const matchEl = document.createElement('div');
+      const liveKey = `${rIdx}-${mIdx}`;
+      const liveScores = (S.tournamentMatchScores || {})[liveKey];
+      const isOngoing = !match.done && match.p1 && match.p2;
+      matchEl.className = 'bracket-match' + (isOngoing ? ' match-ongoing' : '');
+      const p1Score = liveScores?.[match.p1] ?? '';
+      const p2Score = liveScores?.[match.p2] ?? '';
+      const makePlayer = (name, score) => {
+        const el = document.createElement('div');
+        el.className = 'bracket-player' + (name && name === match.winner ? ' winner' : (match.done && name ? ' loser' : ''));
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = name || 'TBD';
+        const scoreSpan = document.createElement('span');
+        scoreSpan.className = 'bracket-score';
+        scoreSpan.textContent = score !== '' ? score : '';
+        el.appendChild(nameSpan); el.appendChild(scoreSpan);
+        return el;
+      };
+      const vs = document.createElement('div'); vs.className = 'bracket-vs'; vs.textContent = 'vs';
+      matchEl.appendChild(makePlayer(match.p1, p1Score));
+      matchEl.appendChild(vs);
+      matchEl.appendChild(makePlayer(match.p2, p2Score));
+      roundEl.appendChild(matchEl);
+    });
+    container.appendChild(roundEl);
+  });
+}
 socket.on('public_tournaments', ({tournaments}) => {
   const list=$('public-tourn-list'); list.innerHTML='';
   if(tournaments.length===0){list.innerHTML='<p style="text-align:center;color:var(--muted);font-size:.9rem">No public tournaments right now.</p>';return;}
@@ -730,7 +877,8 @@ $('btn-confirm-create-tourn').addEventListener('click', () => {
   const name=$('tourn-name-input').value.trim()||'Grand Clash';
   const fee=parseInt($('tourn-fee-input').value)||0;
   const pub=$('tourn-public-check').checked;
-  socket.emit('create_tournament',{name,entryFee:fee,maxPlayers:S.tournamentMaxPlayers||4,isPublic:pub});
+  const ptl=parseInt($('tourn-timer-input')?.value)||10;
+  socket.emit('create_tournament',{name,entryFee:fee,maxPlayers:S.tournamentMaxPlayers||4,isPublic:pub,playTimeLimit:ptl});
   hideOv('overlay-create-tourn');
 });
 $('btn-join-tourn').addEventListener('click', () => { const c=$('tourn-code-input').value.trim().toUpperCase(); if(!c) return toast('Enter code'); socket.emit('join_tournament',{code:c}); });
@@ -773,6 +921,18 @@ $('friend-tag-input').addEventListener('keydown', e => { if(e.key==='Enter') $('
 
 // Peek close
 $('btn-close-peek').addEventListener('click', () => hideOv('overlay-peek'));
+
+// Bracket viewer
+if ($('btn-view-bracket')) $('btn-view-bracket').addEventListener('click', () => {
+  if (S.tournamentCode && !S.tournamentBracket) socket.emit('get_tournament_bracket', { code: S.tournamentCode });
+  if (S.tournamentBracket) renderBracket(S.tournamentBracket, 'bracket-view');
+  showOv('overlay-bracket');
+});
+if ($('btn-close-bracket')) $('btn-close-bracket').addEventListener('click', () => hideOv('overlay-bracket'));
+if ($('btn-wait-view-bracket')) $('btn-wait-view-bracket').addEventListener('click', () => {
+  if (S.tournamentBracket) renderBracket(S.tournamentBracket, 'bracket-view');
+  showOv('overlay-bracket');
+});
 
 // Invite accept/decline
 $('btn-accept-invite').addEventListener('click', () => { if(S.currentInviteId) { socket.emit('accept_invite',{inviteId:S.currentInviteId}); hideOv('overlay-invite'); S.currentInviteId=null; } });

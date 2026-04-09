@@ -130,15 +130,6 @@
     </div>
     <div class="round-info">
       <span id="round-label">Round 1 / 7</span>
-      <div class="draw-dial-compact" id="draw-dial-compact" style="display:none">
-        <span class="ddc-label">Draw</span>
-        <div class="ddc-window">
-          <div class="ddc-strip" id="ddc-strip">
-            <span>0</span><span>1</span><span>2</span><span>3</span>
-            <span>4</span><span>5</span><span>6</span><span>7</span>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -148,6 +139,10 @@
       <div class="arena-character arena-me">
         <div class="arena-avatar" id="arena-my-avatar"></div>
         <div class="arena-name" id="arena-my-name">You</div>
+        <div class="draw-ticker-badge hidden" id="draw-ticker-badge">
+          <span class="dtb-label">Draw</span>
+          <span class="dtb-num" id="dtb-num">0</span>
+        </div>
       </div>
       <div class="arena-vs">
         <div>VS</div>
@@ -158,12 +153,20 @@
         <div class="arena-name" id="arena-opp-name">Opponent</div>
       </div>
     </div>
+    <!-- Tournament play timer -->
+    <div class="play-timer hidden" id="play-timer">
+      <div class="play-timer-bar" id="play-timer-bar"></div>
+      <span class="play-timer-text" id="play-timer-text">10s</span>
+    </div>
   </div>
 
-  <!-- Perk & Emote bar -->
+  <!-- Perk, Emote & Bracket bar -->
   <div class="game-controls">
     <div class="perk-bar" id="perk-bar"></div>
-    <button id="btn-emote" class="btn btn-secondary btn-sm" style="margin: .5rem; pointer-events: auto;">💬 Emote</button>
+    <div class="game-ctrl-btns">
+      <button id="btn-emote" class="btn btn-secondary btn-sm">💬</button>
+      <button id="btn-view-bracket" class="btn btn-ghost btn-sm hidden">🏆</button>
+    </div>
   </div>
 
   <div class="opp-hand-area" id="opp-hand-area"></div>
@@ -249,6 +252,8 @@
     <input id="tourn-name-input" type="text" maxlength="30" placeholder="Grand Clash" />
     <label class="field-label">Entry Fee (coins)</label>
     <input id="tourn-fee-input" type="number" min="0" max="500" value="20" />
+    <label class="field-label">Play Time Limit (seconds per round)</label>
+    <input id="tourn-timer-input" type="number" min="5" max="60" value="10" />
     <label class="field-label">Players</label>
     <div class="seg-control"><button class="seg-btn active" data-val="4" id="seg-4">4P</button><button class="seg-btn" data-val="8" id="seg-8">8P</button></div>
     <label class="field-label" style="margin-top:.5rem"><input type="checkbox" id="tourn-public-check" /> Make Public</label>
@@ -337,21 +342,41 @@
 </div>
 
 <!-- ══════════ EMOTE OVERLAY ══════════ -->
-<div id="overlay-emote" class="overlay hidden" style="background: rgba(0,0,0,0.4)">
-  <div class="overlay-panel" style="padding: 1rem; top: auto; bottom: 20%; transform: translate(-50%, 0);">
+<div id="overlay-emote" class="overlay hidden emote-overlay-pos" style="background: rgba(0,0,0,0.5)">
+  <div class="overlay-panel emote-panel">
     <div class="emote-grid" id="emote-grid">
-      <button class="emote-btn" data-emote="idle">Idle</button>
-      <button class="emote-btn" data-emote="walk">Walk</button>
-      <button class="emote-btn" data-emote="run">Run</button>
-      <button class="emote-btn" data-emote="jump_start">Jump</button>
-      <button class="emote-btn" data-emote="attack_1">Attack 1</button>
-      <button class="emote-btn" data-emote="attack_2">Attack 2</button>
-      <button class="emote-btn" data-emote="hurt">Hurt</button>
-      <button class="emote-btn" data-emote="death">Death</button>
-      <button class="emote-btn" data-emote="spin_transform">Spin</button>
-      <button class="emote-btn" data-emote="dissolve">Dissolve</button>
+      <button class="emote-btn" data-emote="idle" title="Idle">😴</button>
+      <button class="emote-btn" data-emote="walk" title="Walk">🚶</button>
+      <button class="emote-btn" data-emote="run" title="Run">🏃</button>
+      <button class="emote-btn" data-emote="jump_start" title="Jump">🦘</button>
+      <button class="emote-btn" data-emote="attack_1" title="Punch">👊</button>
+      <button class="emote-btn" data-emote="attack_2" title="Slash">⚔️</button>
+      <button class="emote-btn" data-emote="hurt" title="Ouch">😣</button>
+      <button class="emote-btn" data-emote="death" title="Death">💀</button>
+      <button class="emote-btn" data-emote="spin_transform" title="Spin">🌀</button>
+      <button class="emote-btn" data-emote="dissolve" title="Poof">✨</button>
     </div>
     <button id="btn-close-emote" class="btn btn-ghost btn-full" style="margin-top:.5rem">Close</button>
+  </div>
+</div>
+
+<!-- ══════════ TOURNAMENT BRACKET ══════════ -->
+<div id="overlay-bracket" class="overlay hidden">
+  <div class="overlay-panel bracket-panel">
+    <h3>🏆 Tournament Bracket</h3>
+    <div id="bracket-view" class="bracket-view"></div>
+    <button id="btn-close-bracket" class="btn btn-ghost btn-full">Close</button>
+  </div>
+</div>
+
+<!-- ══════════ TOURNAMENT WAITING ROOM ══════════ -->
+<div id="overlay-tourn-waiting" class="overlay hidden" style="background:rgba(0,0,0,0.92);backdrop-filter:blur(10px)">
+  <div class="overlay-panel" style="text-align:center;gap:1rem">
+    <div style="font-size:3rem">⏳</div>
+    <h3 id="tourn-wait-title">Waiting for next match…</h3>
+    <p id="tourn-wait-status" style="color:var(--muted)">Waiting for other matches to finish</p>
+    <div id="tourn-wait-bracket" class="bracket-view"></div>
+    <button id="btn-wait-view-bracket" class="btn btn-ghost btn-full">View Full Bracket</button>
   </div>
 </div>
 
