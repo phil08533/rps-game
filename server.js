@@ -35,7 +35,14 @@ function loadDB() {
   }
 }
 function saveDB() {
-  fs.writeFileSync(DB_FILE, JSON.stringify({ players, friends, dailyWins, monthlyWins }), 'utf8');
+  // Don't save data for guests
+  const persistentPlayers = {};
+  for (const [uname, data] of Object.entries(players)) {
+    if (!uname.startsWith('Guest_')) {
+      persistentPlayers[uname] = data;
+    }
+  }
+  fs.writeFileSync(DB_FILE, JSON.stringify({ players: persistentPlayers, friends, dailyWins, monthlyWins }), 'utf8');
 }
 loadDB();
 setInterval(saveDB, 15000); // Save every 15 seconds
@@ -138,18 +145,19 @@ function getLeaderboard(period) {
   const all = Object.values(players);
   if (period === 'daily') {
     const today = new Date().toISOString().slice(0,10);
-    return all.filter(p => dailyWins[p.username]?.date === today)
+    return all.filter(p => dailyWins[p.username]?.date === today && dailyWins[p.username]?.count > 0)
       .map(p => ({ username: p.username, value: dailyWins[p.username].count }))
       .sort((a,b) => b.value - a.value).slice(0, 50);
   }
   if (period === 'monthly') {
     const month = new Date().toISOString().slice(0,7);
-    return all.filter(p => monthlyWins[p.username]?.month === month)
+    return all.filter(p => monthlyWins[p.username]?.month === month && monthlyWins[p.username]?.count > 0)
       .map(p => ({ username: p.username, value: monthlyWins[p.username].count }))
       .sort((a,b) => b.value - a.value).slice(0, 50);
   }
   // alltime
-  return all.map(p => ({ username: p.username, value: p.wins }))
+  return all.filter(p => p.wins > 0)
+    .map(p => ({ username: p.username, value: p.wins }))
     .sort((a,b) => b.value - a.value).slice(0, 50);
 }
 

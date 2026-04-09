@@ -32,10 +32,14 @@ function setAvatar(elId, avatarId, nameFallback) {
   const el = $(elId); if (!el) return;
   if (avatarId && avatarId.startsWith('Char')) {
     el.innerHTML = '';
-    el.className = 'graphic-avatar';
+    // Don't overwrite existing classes like arena-avatar
+    el.classList.add('graphic-avatar');
+    el.classList.remove('f-avatar');
     el.style.backgroundImage = `url("avatars/${avatarId}/sprite.png")`;
+    el.textContent = '';
   } else {
-    el.className = 'f-avatar';
+    el.classList.remove('graphic-avatar');
+    el.classList.add('f-avatar');
     el.style.backgroundImage = 'none';
     el.textContent = av(nameFallback);
   }
@@ -47,6 +51,21 @@ function updMenu() {
   setAvatar('menu-avatar', p.equippedAvatar, p.username);
   $('menu-coins').textContent=p.coins; 
   $('menu-stats').textContent=`Wins: ${p.wins} · Losses: ${p.losses} · Games: ${p.gamesPlayed}`; 
+  
+  // Guests don't get friends
+  const isGuest = p.username.startsWith('Guest_');
+  const btnFriends = $('btn-friends');
+  if (btnFriends) {
+    if (isGuest) {
+      btnFriends.style.opacity = '0.3';
+      btnFriends.style.pointerEvents = 'none';
+      btnFriends.style.filter = 'grayscale(1)';
+    } else {
+      btnFriends.style.opacity = '1';
+      btnFriends.style.pointerEvents = 'auto';
+      btnFriends.style.filter = 'none';
+    }
+  }
 }
 function applySkin(id) { const cls=Object.values(SM).map(m=>m.cl).filter(Boolean); document.body.classList.remove(...cls); if(SM[id]?.cl) document.body.classList.add(SM[id].cl); }
 
@@ -468,9 +487,11 @@ socket.on('play_emote', ({username, emoteName}) => {
   if (targetNode && targetNode.classList.contains('graphic-avatar')) {
     targetNode.style.animation = 'none';
     void targetNode.offsetWidth;
-    targetNode.className = `graphic-avatar emote-${emoteName}`;
+    // Don't overwrite className, use classList
+    const emoteCls = `emote-${emoteName}`;
+    targetNode.classList.add(emoteCls);
     setTimeout(() => {
-      targetNode.className = 'graphic-avatar';
+      targetNode.classList.remove(emoteCls);
       targetNode.style.animation = '';
     }, 1200);
   }
@@ -504,7 +525,13 @@ socket.on('leaderboard_data', ({period,entries}) => { S.lbPeriod=period; renderL
 socket.on('friends_list', ({friends}) => renderFriends(friends));
 
 // ── UI Bindings ───────────────────────────────────────────────
-$('btn-login').addEventListener('click', () => { const n=$('username-input').value.trim(); if(n.length<2) return toast('2+ characters'); socket.emit('register',{username:n}); });
+$('btn-login').addEventListener('click', () => {
+  let n = $('username-input').value.trim();
+  if (n.length < 2) return toast('2+ characters');
+  // Ensure Guest_ prefix for guest accounts
+  if (!n.startsWith('Guest_')) n = 'Guest_' + n;
+  socket.emit('register', { username: n });
+});
 $('username-input').addEventListener('keydown', e => { if(e.key==='Enter') $('btn-login').click(); });
 document.querySelectorAll('.btn-back').forEach(b => b.addEventListener('click', () => { if(b.dataset.target) show(b.dataset.target); }));
 

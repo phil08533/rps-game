@@ -96,10 +96,10 @@ input:focus{border-color:var(--primary)}
 /* ── Menu ──────────────────────────────────────────────────────── */
 .top-bar{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid var(--border);flex-shrink:0}
 .player-pill{display:flex;align-items:center;gap:.5rem;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:.4rem .75rem .4rem .4rem}
-.pill-avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#e63b1a,#ff6b3d);display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;text-transform:uppercase;color:#fff}
-.coins-pill{display:flex;align-items:center;gap:.35rem;background:rgba(244,196,48,.12);border:1px solid rgba(244,196,48,.3);border-radius:999px;padding:.4rem .85rem;color:var(--gold);font-weight:700;font-size:.95rem}
+.pill-avatar{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#e63b1a,#ff6b3d);display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:700;text-transform:uppercase;color:#fff;overflow:hidden;box-shadow:0 0 15px rgba(230,59,26,.3)}
+.coins-pill{display:flex;align-items:center;gap:.35rem;background:rgba(244,196,48,.12);border:1px solid rgba(244,196,48,.3);border-radius:999px;padding:.5rem 1rem;color:var(--gold);font-weight:700;font-size:.95rem}
 .coins-pill.small{padding:.3rem .6rem;font-size:.85rem}
-.coin-icon{font-size:1rem}
+.coin-icon{font-size:1.1rem}
 
 .menu-grid{display:flex;flex-direction:column;gap:1rem;padding:1.25rem;max-width:480px;width:100%;margin:0 auto;flex:1}
 .menu-hero{text-align:center;padding:1rem;background:radial-gradient(ellipse at center,rgba(230,59,26,.12) 0%,transparent 70%)}
@@ -176,6 +176,7 @@ input:focus{border-color:var(--primary)}
   image-rendering: pixelated;
   transform: scale(4) !important; transform-origin: center;
   filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 .arena-me .arena-avatar { transform: scale(4) scaleX(1) !important; }
 .arena-opp .arena-avatar { transform: scale(4) scaleX(-1) !important; }
@@ -466,11 +467,9 @@ input:focus{border-color:var(--primary)}
   animation: anim-idle 0.8s steps(4) infinite;
   width: 64px !important; height: 64px !important; border-radius: 8px !important;
   background-color: transparent;
-  transform: scale(0.6);
+  transform: scale(1);
   transform-origin: center;
-  image-rendering: -webkit-optimize-contrast;
   image-rendering: pixelated;
-  image-rendering: crisp-edges;
 }
 
 .avatar-display {
@@ -529,6 +528,6 @@ input:focus{border-color:var(--primary)}
 /* Global fix for sprite flickering (ensure 3D rendering and no subpixel issues) */
 .graphic-avatar, .avatar-display {
   backface-visibility: hidden;
-  transform: translateZ(0) scale(0.6);
+  transform: translateZ(0);
   -webkit-font-smoothing: antialiased;
 }
