@@ -92,7 +92,7 @@ function activatePerk(id) {
 }
 
 // ── Render cards ──────────────────────────────────────────────
-function renderHand(dealCount = 0) {
+function renderHand(dealCount = 0, fromLeft = false) {
   const area = $('player-hand-area'); area.innerHTML = '';
   if (S.myHand.length === 0 && !S.played) {
     area.innerHTML = '<div class="empty-hand-msg">😬 No cards! Opponent gets a free point.</div>';
@@ -109,7 +109,7 @@ function renderHand(dealCount = 0) {
     el.innerHTML = `<span class="card-emoji">${m.e}</span><span class="card-label">${m.l}</span>`;
     // Staggered deal animation for newly drawn cards
     if (i >= newCardStart) {
-      el.classList.add('dealing');
+      el.classList.add(fromLeft ? 'dealing-from-left' : 'dealing');
       el.style.animationDelay = `${(i - newCardStart) * 90}ms`;
     }
     el.addEventListener('click', () => playCard(i));
@@ -122,43 +122,45 @@ function renderHand(dealCount = 0) {
   });
 }
 
-// ── Draw Ticker (slot-machine spin beside character) ───────────
+// ── Draw Ticker (slot-machine spin in ctrl bar) ───────────────
 let _dialSpinTimer = null;
 function updateDrawDial(count) {
-  const badge = $('draw-ticker-badge');
-  const numEl = $('dtb-num');
-  if (!badge || !numEl) return;
+  return new Promise(resolve => {
+    const badge = $('draw-ticker-badge');
+    const numEl = $('dtb-num');
+    if (!badge || !numEl) { resolve(); return; }
 
-  // Clear any running spin
-  if (_dialSpinTimer) { clearInterval(_dialSpinTimer); _dialSpinTimer = null; }
+    if (_dialSpinTimer) { clearTimeout(_dialSpinTimer); _dialSpinTimer = null; }
 
-  badge.classList.remove('hidden');
-  badge.classList.remove('dial-pop');
-  badge.offsetHeight; // reflow
-  badge.classList.add('dial-pop');
+    badge.classList.remove('hidden');
+    badge.classList.remove('dial-pop');
+    badge.offsetHeight; // reflow
+    badge.classList.add('dial-pop');
 
-  // Spin through random numbers quickly, then settle on final value
-  let spins = 0;
-  const maxSpins = 14 + Math.floor(Math.random() * 4);
-  function tick() {
-    numEl.classList.remove('spin-tick');
-    numEl.offsetWidth;
-    numEl.textContent = Math.floor(Math.random() * 8);
-    numEl.classList.add('spin-tick');
-    spins++;
-    const delay = spins < 8 ? 55 : 55 + (spins - 7) * 28; // accelerate then decelerate
-    if (spins < maxSpins) {
-      _dialSpinTimer = setTimeout(tick, delay);
-    } else {
-      // Settle on final value
+    let spins = 0;
+    const maxSpins = 14 + Math.floor(Math.random() * 4);
+    function tick() {
       numEl.classList.remove('spin-tick');
-      numEl.textContent = count;
-      numEl.classList.add('spin-settle');
-      setTimeout(() => numEl.classList.remove('spin-settle'), 350);
-      _dialSpinTimer = null;
+      numEl.offsetWidth;
+      numEl.textContent = Math.floor(Math.random() * 4); // 0-3 range
+      numEl.classList.add('spin-tick');
+      spins++;
+      const delay = spins < 8 ? 55 : 55 + (spins - 7) * 28;
+      if (spins < maxSpins) {
+        _dialSpinTimer = setTimeout(tick, delay);
+      } else {
+        numEl.classList.remove('spin-tick');
+        numEl.textContent = count;
+        numEl.classList.add('spin-settle');
+        _dialSpinTimer = setTimeout(() => {
+          numEl.classList.remove('spin-settle');
+          _dialSpinTimer = null;
+          resolve(); // ticker settled — caller can now deal cards
+        }, 350);
+      }
     }
-  }
-  tick();
+    tick();
+  });
 }
 let _dSrc = -1;
 
@@ -278,9 +280,22 @@ function showRound(d) {
         S.myScore=d.myScore; S.oppScore=d.opponentScore; S.round=d.round;
         S.myHand=d.newHand; S.played=false; S.activePerksRemaining=d.activePerksRemaining||[];
         const drawnCount = typeof d.myDraw === 'number' ? d.myDraw : 0;
-        renderHand(drawnCount); renderOpp(d.opponentCardCount); updRound(); renderPerkBar();
-        updateDrawDial(drawnCount);
-        $('game-status').textContent=S.myHand.length>0?'Tap a card · Hold to drag':'Out of cards…';
+        renderOpp(d.opponentCardCount); updRound(); renderPerkBar();
+
+        if (drawnCount > 0) {
+          // Spin ticker first, then slide new cards in from left after it settles
+          $('game-status').textContent = '🃏 Drawing cards…';
+          updateDrawDial(drawnCount).then(() => {
+            renderHand(drawnCount, true);
+            $('game-status').textContent = S.myHand.length > 0 ? 'Tap a card · Hold to drag' : 'Out of cards…';
+          });
+        } else {
+          // No new draws: show existing hand immediately, hide ticker
+          renderHand(0);
+          const badge = $('draw-ticker-badge');
+          if (badge) badge.classList.add('hidden');
+          $('game-status').textContent = S.myHand.length > 0 ? 'Tap a card · Hold to drag' : 'Out of cards…';
+        }
       }, 2000);
       
     }, 800);
@@ -474,7 +489,11 @@ socket.on('registered', ({playerData,shop,isRejoin}) => {
   applySkin(playerData.equippedSkin);
   updMenu();
   // Don't navigate to menu if this is a rejoin (game_start handles navigation)
-  if (!isRejoin) show('screen-menu');
+  if (!isRejoin) {
+    show('screen-menu');
+    // Show PWA install prompt shortly after login
+    setTimeout(showPWABanner, 1500);
+  }
 });
 socket.on('error', ({message}) => toast('⚠️ '+message));
 
@@ -1009,6 +1028,33 @@ socket.on('player_data', d => {
   S.playerData = d;
   updMenu();
   if (d.hasDailyReward && !hadDaily) showDailyRewardPopup();
+});
+
+// ── PWA Install Prompt ────────────────────────────────────────
+let _pwaPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _pwaPrompt = e;
+});
+function showPWABanner() {
+  const banner = $('pwa-install-banner');
+  if (!banner || !_pwaPrompt) return;
+  banner.classList.remove('hidden');
+}
+const _pwrInstallBtn = $('btn-pwa-install');
+if (_pwrInstallBtn) _pwrInstallBtn.addEventListener('click', async () => {
+  if (!_pwaPrompt) return;
+  _pwaPrompt.prompt();
+  await _pwaPrompt.userChoice;
+  _pwaPrompt = null;
+  const banner = $('pwa-install-banner');
+  if (banner) banner.classList.add('hidden');
+});
+const _pwaDismissBtn = $('btn-pwa-dismiss');
+if (_pwaDismissBtn) _pwaDismissBtn.addEventListener('click', () => {
+  _pwaPrompt = null;
+  const banner = $('pwa-install-banner');
+  if (banner) banner.classList.add('hidden');
 });
 
 // ── Init ──────────────────────────────────────────────────────

@@ -308,10 +308,10 @@ input:focus{border-color:var(--primary)}
 /* ── Hands ────────────────────────────────────────────────────── */
 .opp-hand-area{flex:1;display:flex;align-items:flex-end;justify-content:center;gap:.4rem;padding:.5rem .75rem;overflow:hidden;min-height:100px}
 .game-status{text-align:center;color:var(--muted);font-size:.85rem;padding:.3rem;flex-shrink:0}
-.player-hand-area{display:flex;align-items:center;justify-content:center;gap:.55rem;padding:.6rem .75rem;background:rgba(0,0,0,.3);border-top:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;min-height:160px}
+.player-hand-area{display:flex;align-items:center;justify-content:center;gap:.4rem;padding:.6rem .75rem;background:rgba(0,0,0,.3);border-top:1px solid var(--border);flex-shrink:0;flex-wrap:nowrap;overflow-x:hidden;min-height:160px}
 
 /* ── Game Cards ───────────────────────────────────────────────── */
-.game-card{width:var(--card-w);height:var(--card-h);border-radius:12px;border:2px solid transparent;cursor:pointer;user-select:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.3rem;transition:all .2s ease;position:relative;overflow:hidden;font-weight:700;font-size:.8rem;background:linear-gradient(160deg,rgba(230,59,26,.2),rgba(230,59,26,.08));border-color:rgba(230,59,26,.35);box-shadow:0 4px 16px rgba(0,0,0,.35);flex-shrink:0}
+.game-card{width:var(--card-w);max-width:var(--card-w);height:var(--card-h);border-radius:12px;border:2px solid transparent;cursor:pointer;user-select:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.3rem;transition:all .2s ease;position:relative;overflow:hidden;font-weight:700;font-size:.8rem;background:linear-gradient(160deg,rgba(230,59,26,.2),rgba(230,59,26,.08));border-color:rgba(230,59,26,.35);box-shadow:0 4px 16px rgba(0,0,0,.35);flex:0 1 var(--card-w);min-width:0}
 .game-card:hover{transform:translateY(-8px) scale(1.04);border-color:var(--primary);box-shadow:0 8px 24px rgba(230,59,26,.4)}
 .game-card:active{transform:translateY(-4px) scale(.98)}
 .game-card.played{pointer-events:none;opacity:.3}
@@ -626,6 +626,15 @@ input:focus{border-color:var(--primary)}
   animation: cardDeal .44s cubic-bezier(.34,1.56,.64,1) both;
 }
 
+@keyframes cardDealFromLeft {
+  from   { transform: translateX(-60px) scale(.65); opacity: 0; }
+  65%    { transform: translateX(4px)   scale(1.05); opacity: 1; }
+  to     { transform: translateX(0)     scale(1);    opacity: 1; }
+}
+.game-card.dealing-from-left {
+  animation: cardDealFromLeft .4s cubic-bezier(.34,1.56,.64,1) both;
+}
+
 /* ══════════ GAME INTRO OVERLAY ══════════ */
 .game-intro-panel {
   display: flex; align-items: center; justify-content: center;
@@ -722,9 +731,9 @@ input:focus{border-color:var(--primary)}
   /* Hands */
   .opp-hand-area { min-height: 70px; gap: .25rem; padding: .3rem .5rem; }
   .opp-card { width: 44px; height: 62px; font-size: .95rem; }
-  .player-hand-area { min-height: 135px; gap: .4rem; padding: .45rem .5rem; }
+  .player-hand-area { min-height: 135px; gap: .25rem; padding: .45rem .4rem; }
   .card-emoji { font-size: 2rem; }
-  .card-label { font-size: .65rem; }
+  .card-label { font-size: .6rem; }
 
   /* Login */
   .login-content { padding: 1.2rem 1rem; gap: 1.5rem; }
@@ -825,25 +834,21 @@ input:focus{border-color:var(--primary)}
   .score-item span:first-child { font-size: 2.2rem; }
 }
 
-/* ══════════ DRAW TICKER BADGE (next to character) ══════════ */
+/* ══════════ DRAW TICKER BADGE (inline next to 💬 button) ══════════ */
 .draw-ticker-badge {
-  position: absolute;
-  right: -42px; top: 50%;
-  transform: translateY(-50%);
-  display: flex; flex-direction: column; align-items: center; gap: .1rem;
+  display: flex; flex-direction: row; align-items: center; gap: .25rem;
   background: rgba(255,193,7,.15);
   border: 1px solid rgba(255,193,7,.45);
   border-radius: 8px;
-  padding: .25rem .4rem;
-  min-width: 34px;
-  z-index: 10;
+  padding: .3rem .5rem;
   pointer-events: none;
+  flex-shrink: 0;
 }
-.draw-ticker-badge.hidden { display: none; }
-.dtb-label { font-size: .5rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
+.draw-ticker-badge.hidden { display: none !important; }
+.dtb-label { font-size: 1rem; line-height: 1; }
 .dtb-num {
-  font-family: var(--font-display); font-size: 1.1rem; font-weight: 900;
-  color: var(--accent); line-height: 1;
+  font-family: var(--font-display); font-size: 1rem; font-weight: 900;
+  color: var(--accent); line-height: 1; min-width: 14px; text-align: center;
 }
 .dtb-num.spin-tick { color: var(--primary2); }
 .dtb-num.spin-settle { animation: settlePop .3s cubic-bezier(.34,1.56,.64,1); }
@@ -851,9 +856,9 @@ input:focus{border-color:var(--primary)}
 
 .draw-ticker-badge.dial-pop { animation: dialPop .45s cubic-bezier(.34,1.56,.64,1); }
 @keyframes dialPop {
-  0%   { transform: translateY(-50%) scale(1); }
-  45%  { transform: translateY(-50%) scale(1.3); box-shadow: 0 0 14px rgba(255,193,7,.6); }
-  100% { transform: translateY(-50%) scale(1); box-shadow: none; }
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.25); box-shadow: 0 0 14px rgba(255,193,7,.6); }
+  100% { transform: scale(1); box-shadow: none; }
 }
 
 /* ══════════ CARD EXIT ANIMATION (smooth slide away on play) ══════════ */
@@ -913,7 +918,26 @@ input:focus{border-color:var(--primary)}
 
 /* ══════════ MOBILE RESPONSIVE ADDITIONS ══════════ */
 @media (max-width: 480px) {
-  .draw-ticker-badge { right: -36px; }
   .emote-overlay-pos { padding-bottom: 10rem; }
 }
+
+/* ══════════ PWA INSTALL BANNER ══════════ */
+.pwa-banner {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 9998;
+  background: linear-gradient(135deg, #1e0b0b, #2a1010);
+  border-top: 1px solid rgba(255,193,7,.4);
+  padding: .75rem 1rem;
+  animation: slideUpIn .35s cubic-bezier(.34,1.56,.64,1);
+}
+.pwa-banner.hidden { display: none !important; }
+@keyframes slideUpIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.pwa-banner-inner {
+  display: flex; align-items: center; gap: .75rem;
+  max-width: 480px; margin: 0 auto;
+}
+.pwa-banner-icon { font-size: 1.8rem; flex-shrink: 0; }
+.pwa-banner-text { flex: 1; display: flex; flex-direction: column; gap: .05rem; min-width: 0; }
+.pwa-banner-text strong { font-size: .95rem; font-weight: 800; color: var(--accent); }
+.pwa-banner-text span { font-size: .78rem; color: var(--muted); }
+.pwa-close { padding: .35rem .6rem !important; font-size: .85rem !important; }
 
