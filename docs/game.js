@@ -42,7 +42,8 @@ function setAvatar(elId, avatarId, nameFallback) {
 }
 function updMenu() { 
   const p=S.playerData; if(!p)return; 
-  $('menu-username').textContent=p.username; 
+  $('menu-username').textContent=p.nickname || p.username; 
+  $('menu-tag').textContent=`#${p.friendCode || '000000'}`;
   setAvatar('menu-avatar', p.equippedAvatar, p.username);
   $('menu-coins').textContent=p.coins; 
   $('menu-stats').textContent=`Wins: ${p.wins} · Losses: ${p.losses} · Games: ${p.gamesPlayed}`; 
@@ -125,36 +126,71 @@ function playCard(i) {
 }
 
 // ── Round result (overlay, keeping it simple but with perk messages) ──
+// ── Round result (Arena Clash System) ──
 function showRound(d) {
-  const myM = d.myCard ? (CM[d.myCard]||{e:'—',l:'None'}) : {e:'❌',l:'No Card'};
-  const opM = d.opponentCard ? (CM[d.opponentCard]||{e:'—',l:'None'}) : d.opponentPhantom ? {e:'👻',l:'Hidden'} : {e:'❌',l:'No Card'};
-  $('br-my-emoji').textContent=myM.e; $('br-my-name').textContent=myM.l;
-  $('br-op-emoji').textContent=opM.e; $('br-op-name').textContent=opM.l;
-  const mc=$('br-my-card'),oc=$('br-op-card');
-  mc.classList.remove('win-card','lose-card'); oc.classList.remove('win-card','lose-card');
-  const re=$('br-result-text'); re.className='round-result-text';
-  if(d.result==='win'){re.textContent='🏆 You Win!';re.classList.add('win');mc.classList.add('win-card');oc.classList.add('lose-card');}
-  else if(d.result==='loss'){re.textContent='💀 You Lose!';re.classList.add('loss');oc.classList.add('win-card');mc.classList.add('lose-card');}
-  else{re.textContent='🤝 Tie — Cards Returned!';re.classList.add('tie');}
+  const arena = $('table-area');
+  arena.innerHTML = '';
+  
+  // 1. Create Clashing Cards
+  const myCard = document.createElement('div');
+  myCard.className = 'table-card my-side face-down anim-slide-in-bottom';
+  myCard.innerHTML = `<span class="card-emoji">${(CM[d.myCard]||{e:'❓'}).e}</span><span class="card-label">${(CM[d.myCard]||{e:'?'}).l}</span>`;
+  
+  const oppCard = document.createElement('div');
+  oppCard.className = 'table-card opp-side face-down anim-slide-in-top';
+  const opM = d.opponentCard ? (CM[d.opponentCard]||{e:'❓'}) : d.opponentPhantom ? {e:'👻',l:'Hidden'} : {e:'❌',l:'None'};
+  oppCard.innerHTML = `<span class="card-emoji">${opM.e}</span><span class="card-label">${opM.l}</span>`;
+  
+  arena.appendChild(myCard);
+  arena.appendChild(oppCard);
 
-  // Perk messages
-  const pmDiv=$('br-perk-msgs'); pmDiv.innerHTML='';
-  [...(d.myPerkMessages||[]),...(d.oppPerkMessages||[])].forEach(m=>{const s=document.createElement('span');s.textContent=m;pmDiv.appendChild(s);});
-
-  let tk='';
-  if(d.tiedReturnedCard) tk+='🔄 Card returned. ';
-  if(d.myDraw>0) tk+=`+${d.myDraw} card${d.myDraw!==1?'s':''} from ticker!`; else if(!d.tiedReturnedCard) tk+='No cards drawn.';
-  $('br-ticker').textContent=tk;
-  $('br-scores').textContent=`Score: ${d.myScore} – ${d.opponentScore} · Round ${d.round}/${d.maxRounds}`;
-  showOv('overlay-round');
-
+  // 2. Flip and Clash Sequence
   setTimeout(() => {
-    hideOv('overlay-round');
-    S.myScore=d.myScore; S.oppScore=d.opponentScore; S.round=d.round;
-    S.myHand=d.newHand; S.played=false; S.activePerksRemaining=d.activePerksRemaining||[];
-    renderHand(); renderOpp(d.opponentCardCount); updRound(); renderPerkBar();
-    $('game-status').textContent=S.myHand.length>0?'Tap a card · Hold to drag':'Out of cards…';
-  }, 2500);
+    myCard.classList.remove('face-down'); myCard.classList.add('face-up', 'anim-flip');
+    oppCard.classList.remove('face-down'); oppCard.classList.add('face-up', 'anim-flip');
+    
+    // Impact after flip
+    setTimeout(() => {
+      // Screen Shake
+      document.body.classList.add('screen-shake');
+      setTimeout(() => document.body.classList.remove('screen-shake'), 300);
+      
+      // Impact Ring
+      const ring = document.createElement('div');
+      ring.className = 'impact-ring';
+      arena.appendChild(ring);
+      
+      // Determine Animations
+      if (d.result === 'win') {
+        myCard.classList.add('anim-winner-slap');
+        oppCard.classList.add('anim-loser-die');
+      } else if (d.result === 'loss') {
+        oppCard.classList.add('anim-winner-slap');
+        myCard.classList.add('anim-loser-die');
+      } else {
+        // Tie effect
+        myCard.style.transform = 'translateY(10px)';
+        oppCard.style.transform = 'translateY(-10px)';
+      }
+      
+      // Show Result Text
+      const res = document.createElement('div');
+      res.className = `table-result ${d.result}`;
+      res.textContent = d.result === 'win' ? 'VICTORY' : d.result === 'loss' ? 'DEFEAT' : 'TIE';
+      arena.appendChild(res);
+
+      // Final Cleanup & State update
+      setTimeout(() => {
+        arena.innerHTML = '';
+        S.myScore=d.myScore; S.oppScore=d.opponentScore; S.round=d.round;
+        S.myHand=d.newHand; S.played=false; S.activePerksRemaining=d.activePerksRemaining||[];
+        renderHand(); renderOpp(d.opponentCardCount); updRound(); renderPerkBar();
+        $('game-status').textContent=S.myHand.length>0?'Tap a card · Hold to drag':'Out of cards…';
+      }, 2000);
+      
+    }, 800);
+    
+  }, 1000);
 }
 
 // ── Game over ─────────────────────────────────────────────────
@@ -254,7 +290,8 @@ function renderProfile() {
   const p=S.playerData; if(!p) return;
   setAvatar('prof-avatar-big', p.equippedAvatar, p.username);
   $('prof-avatar-big').style.transform = 'scale(1.5)';
-  $('prof-username').textContent=p.username;
+  $('prof-username').textContent=p.nickname || p.username;
+  $('prof-tag').textContent=`#${p.friendCode || '000000'}`;
   $('prof-coins').textContent=p.coins; $('prof-wins').textContent=p.wins;
   $('prof-losses').textContent=p.losses; $('prof-ties').textContent=p.ties;
   $('prof-games').textContent=p.gamesPlayed;
@@ -499,8 +536,13 @@ $('btn-refresh-public').addEventListener('click', () => socket.emit('list_public
 document.querySelectorAll('.lb-tab').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.lb-tab').forEach(x=>x.classList.remove('active')); b.classList.add('active'); S.lbPeriod=b.dataset.period; socket.emit('get_leaderboard',{period:S.lbPeriod}); }));
 
 // Friends
-$('btn-add-friend').addEventListener('click', () => { const n=$('friend-name-input').value.trim(); if(!n) return toast('Enter a name'); socket.emit('add_friend',{friendName:n}); $('friend-name-input').value=''; toast('✅ Friend request sent!'); });
-$('friend-name-input').addEventListener('keydown', e => { if(e.key==='Enter') $('btn-add-friend').click(); });
+$('btn-add-friend-tag').addEventListener('click', () => { 
+  const t=$('friend-tag-input').value.trim(); 
+  if(!t.includes('#')) return toast('Format: Name#Tag'); 
+  socket.emit('add_friend_by_code',{tag:t}); 
+  $('friend-tag-input').value=''; 
+});
+$('friend-tag-input').addEventListener('keydown', e => { if(e.key==='Enter') $('btn-add-friend-tag').click(); });
 
 // Peek close
 $('btn-close-peek').addEventListener('click', () => hideOv('overlay-peek'));

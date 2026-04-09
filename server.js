@@ -15,9 +15,11 @@ const fs = require('fs');
 
 const DB_FILE = path.join(__dirname, 'database.json');
 let players     = {};
-let friends     = {};   // username → Set/Array of friend usernames
-let dailyWins   = {};   // username → { count, date }
 let monthlyWins = {};   // username → { count, month }
+let friends     = {};   // username → Set/Array of friend usernames
+
+const BLACKLIST = ['admin', 'moderator', 'server', 'system', 'root', 'staff', 'owner', 'official'];
+// You can add more offensive words here
 
 function loadDB() {
   if (fs.existsSync(DB_FILE)) {
@@ -107,12 +109,18 @@ function getPlayer(username) {
       unlockedAvatars: ['Char 1', 'Char 2', 'Char 3', 'Char 4', 'Char 5'],
       equippedAvatar: 'Char 1',
       wins: 0, losses: 0, ties: 0, gamesPlayed: 0,
+      friendCode: Math.floor(100000 + Math.random() * 900000).toString(),
+      nickname: username.slice(0, 15),
     };
   }
-  // Data migration for old accounts stored without avatars
+  // Data migration for old accounts
   if (!players[username].unlockedAvatars) {
     players[username].unlockedAvatars = ['Char 1', 'Char 2', 'Char 3', 'Char 4', 'Char 5'];
     players[username].equippedAvatar = 'Char 1';
+  }
+  if (!players[username].friendCode || players[username].friendCode.length < 6) {
+    players[username].friendCode = Math.floor(100000 + Math.random() * 900000).toString();
+    players[username].nickname = username.slice(0, 15);
   }
   return players[username];
 }
@@ -537,6 +545,9 @@ io.on('connection', (socket) => {
 
   socket.on('register', ({ username }) => {
     if (!username || username.length < 2 || username.length > 20) return socket.emit('error', { message: 'Username must be 2–20 characters' });
+    const u = username.trim().toLowerCase();
+    if (BLACKLIST.some(b => u.includes(b))) return socket.emit('error', { message: 'That username is restricted.' });
+    
     const pd = getPlayer(username.trim());
     socket.username = pd.username;
     socket.emit('registered', { playerData: pd, shop: getShopData() });
@@ -616,9 +627,10 @@ io.on('connection', (socket) => {
       socket.currentRoom = room.code; oppSock.currentRoom = room.code;
       room.players.forEach((p, idx) => {
         const opp = room.players[idx === 0 ? 1 : 0];
+        const oppNick = getPlayer(opp.username).nickname;
         io.to(p.socketId).emit('game_start', {
           room: room.code, myIndex: idx, myHand: [...p.hand],
-          opponentName: opp.username, opponentCardCount: opp.hand.length,
+          opponentName: oppNick, opponentUsername: opp.username, opponentCardCount: opp.hand.length,
           opponentAvatar: opp.avatar,
           round: 1, maxRounds: 7, isTournament: false,
           activePerksRemaining: getActivePerksRemaining(p),
@@ -652,13 +664,63 @@ io.on('connection', (socket) => {
     socket.join(room.code); socket.currentRoom = room.code;
 
     const inviteId = 'inv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-    pendingInvites[inviteId] = { from: socket.username, to: friendName, roomCode: room.code, fromSocketId: socket.id };
+    pendingInvites[inviteId] = { from: socket.username, fromNick: getPlayer(socket.username).nickname, to: friendName, roomCode: room.code, fromSocketId: socket.id };
 
-    targetSock.emit('game_invite', { inviteId, from: socket.username });
+    targetSock.emit('game_invite', { inviteId, from: pendingInvites[inviteId].fromNick });
     socket.emit('room_created', { code: room.code, inviteSent: friendName });
 
     // Expire after 60s
     setTimeout(() => { delete pendingInvites[inviteId]; }, 60000);
+  });
+
+  // ── Social / Friends Management ──
+  socket.on('update_nickname', ({ nickname }) => {
+    if (!socket.username) return;
+    const nick = nickname.trim();
+    if (nick.length < 2) return socket.emit('error', { message: 'Nickname too short' });
+    if (BLACKLIST.some(b => nick.toLowerCase().includes(b))) return socket.emit('error', { message: 'That nickname is restricted.' });
+    
+    const pd = getPlayer(socket.username);
+    pd.nickname = nick.slice(0, 15);
+    socket.emit('registered', { playerData: pd, shop: getShopData() });
+    saveDB();
+  });
+
+  socket.on('add_friend_by_code', ({ tag }) => {
+    if (!socket.username) return;
+    // tag format: Name#1234
+    const [nick, code] = tag.split('#');
+    if (!nick || !code) return socket.emit('error', { message: 'Use Format: Name#1234' });
+    const target = Object.values(players).find(p => p.nickname.toLowerCase() === nick.toLowerCase() && p.friendCode === code);
+    if (!target) return socket.emit('error', { message: 'Player not found' });
+    if (target.username === socket.username) return socket.emit('error', { message: 'Cannot add yourself' });
+    
+    if (!friends[socket.username]) friends[socket.username] = [];
+    if (!friends[socket.username].includes(target.username)) {
+      friends[socket.username].push(target.username);
+      saveDB();
+    }
+    socket.emit('friends_list', { friends: getFriendsList(socket.username) });
+    socket.emit('toast', { message: `Added ${target.nickname} to friends!` });
+  });
+
+  socket.on('add_friend_by_username', ({ username }) => {
+    if (!socket.username || !players[username]) return;
+    if (username === socket.username) return;
+    if (!friends[socket.username]) friends[socket.username] = [];
+    if (!friends[socket.username].includes(username)) {
+      friends[socket.username].push(username);
+      saveDB();
+    }
+    socket.emit('friends_list', { friends: getFriendsList(socket.username) });
+    socket.emit('toast', { message: `Friend added!` });
+  });
+
+  socket.on('remove_friend', ({ username }) => {
+    if (!socket.username || !friends[socket.username]) return;
+    friends[socket.username] = friends[socket.username].filter(u => u !== username);
+    saveDB();
+    socket.emit('friends_list', { friends: getFriendsList(socket.username) });
   });
 
   socket.on('accept_invite', ({ inviteId }) => {
@@ -713,9 +775,11 @@ io.on('connection', (socket) => {
     room.state = 'playing';
     room.players.forEach((p, idx) => {
       const opp = room.players[idx === 0 ? 1 : 0];
+      const oppNick = getPlayer(opp.username).nickname;
       io.to(p.socketId).emit('game_start', {
         room: code, myIndex: idx, myHand: [...p.hand],
-        opponentName: opp.username, opponentCardCount: opp.hand.length,
+        opponentName: oppNick, opponentUsername: opp.username, opponentCardCount: opp.hand.length,
+        opponentAvatar: opp.avatar,
         round: 1, maxRounds: 7, isTournament: false,
         activePerksRemaining: getActivePerksRemaining(p),
       });
@@ -977,7 +1041,14 @@ function getFriendsList(username) {
   if (!list) return [];
   return list.map(fn => {
     const p = players[fn];
-    return { username: fn, wins: p?.wins || 0, gamesPlayed: p?.gamesPlayed || 0, online: isOnline(fn) };
+    return { 
+      username: fn, 
+      nickname: p?.nickname || fn, 
+      friendCode: p?.friendCode || '0000',
+      wins: p?.wins || 0, 
+      gamesPlayed: p?.gamesPlayed || 0, 
+      online: isOnline(fn) 
+    };
   });
 }
 

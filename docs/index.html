@@ -14,12 +14,13 @@
 </head>
 <body>
 
+<div class="global-fire-bg"></div>
+<div class="fire-particles" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+
 <div id="toast" class="toast"></div>
 
 <!-- ══════════ LOGIN ══════════ -->
 <div id="screen-login" class="screen active">
-  <div class="login-bg"></div>
-  <div class="fire-particles" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
   <div class="login-content">
     <div class="logo-wrap">
       <span class="logo-emoji">⚔️</span>
@@ -57,7 +58,7 @@
 <!-- ══════════ MENU ══════════ -->
 <div id="screen-menu" class="screen">
   <header class="top-bar">
-    <div class="player-pill"><span class="pill-avatar" id="menu-avatar">?</span><span id="menu-username">–</span></div>
+    <div class="player-pill"><span class="pill-avatar" id="menu-avatar">?</span><span id="menu-username">–</span><span id="menu-tag" class="user-tag" style="opacity:0.6;font-size:0.8rem;margin-left:2px">#000000</span></div>
     <div class="coins-pill"><span class="coin-icon">🪙</span><span id="menu-coins">0</span></div>
   </header>
   <main class="menu-grid">
@@ -109,6 +110,8 @@
     </div>
     <div class="round-info"><span id="round-label">Round 1 / 7</span></div>
   </div>
+
+  <div class="table-area" id="table-area"></div>
 
   <!-- Perk & Emote bar -->
   <div class="game-controls">
@@ -226,6 +229,7 @@
     <div class="profile-hero">
       <div class="profile-avatar-big" id="prof-avatar-big">?</div>
       <h3 id="prof-username">–</h3>
+      <span id="prof-tag" class="user-tag" style="opacity:0.6;margin-top:-0.5rem">#000000</span>
       <div class="coins-pill"><span class="coin-icon">🪙</span><span id="prof-coins">0</span></div>
     </div>
     <div class="stats-grid">
@@ -288,11 +292,11 @@
   <div class="nav-bar"><button class="btn-back" data-target="screen-menu">← Back</button><h2>Friends</h2><div></div></div>
   <div class="content-wrap">
     <div class="join-row">
-      <input id="friend-name-input" type="text" maxlength="20" placeholder="Enter warrior name" autocomplete="off" />
-      <button id="btn-add-friend" class="btn btn-secondary btn-sm">Add</button>
+      <input id="friend-tag-input" type="text" maxlength="30" placeholder="e.g. Blade#123456" autocomplete="off" />
+      <button id="btn-add-friend-tag" class="btn btn-secondary btn-sm">Add by Tag</button>
     </div>
     <div id="friends-list" class="player-list"></div>
-    <p id="friends-empty" class="lobby-label" style="text-align:center">No friends yet — add some warriors!</p>
+    <p id="friends-empty" class="lobby-label" style="text-align:center">No friends yet — add some warriors by their Name#Tag!</p>
   </div>
 </div>
 
