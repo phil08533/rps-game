@@ -532,6 +532,20 @@ $('btn-start-tourn').addEventListener('click', () => socket.emit('start_tourname
 $('btn-tourn-menu').addEventListener('click', () => { hideOv('overlay-tourn-over'); show('screen-menu'); });
 $('btn-refresh-public').addEventListener('click', () => socket.emit('list_public_tournaments'));
 
+// Profile / Nickname logic
+$('btn-edit-nick').addEventListener('click', () => {
+  const row = $('nick-edit-row');
+  row.style.display = row.style.display === 'none' ? 'flex' : 'none';
+  if (row.style.display === 'flex') $('nick-input').value = S.playerData.nickname || '';
+});
+$('btn-save-nick').addEventListener('click', () => {
+  const nick = $('nick-input').value.trim();
+  if (nick) {
+    socket.emit('update_nickname', { nickname: nick });
+    $('nick-edit-row').style.display = 'none';
+  }
+});
+
 // Leaderboard tabs
 document.querySelectorAll('.lb-tab').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.lb-tab').forEach(x=>x.classList.remove('active')); b.classList.add('active'); S.lbPeriod=b.dataset.period; socket.emit('get_leaderboard',{period:S.lbPeriod}); }));
 
