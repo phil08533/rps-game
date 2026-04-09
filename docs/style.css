@@ -16,7 +16,7 @@
 html,body{height:100%;width:100%;overflow:hidden;font-family:var(--font-body);background:var(--bg);color:var(--text);font-size:16px;line-height:1.4}
 
 /* ── Screens ──────────────────────────────────────────────────── */
-.screen{position:fixed;inset:0;overflow-y:auto;display:none;flex-direction:column;background:var(--bg);animation:fadeIn .25s ease}
+.screen{position:fixed;inset:0;overflow-y:auto;display:none;flex-direction:column;background:transparent;animation:fadeIn .25s ease}
 .screen.active{display:flex}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
@@ -156,10 +156,59 @@ input:focus{border-color:var(--primary)}
 /* ── Table (center play area / THE RING) ───────────────────────── */
 .table-area {
   flex: 1; display: flex; align-items: center; justify-content: center;
-  position: relative; min-height: 200px; overflow: visible;
-  perspective: 1000px;
-  background: radial-gradient(circle at center, rgba(230,59,26,0.1) 0%, transparent 70%);
+  position: relative; min-height: 350px; overflow: visible;
+  perspective: 1200px;
+  background: radial-gradient(circle at center, rgba(230,59,26,0.15) 0%, transparent 70%);
 }
+
+/* Arena Stage (The Face-off) */
+.arena-stage {
+  display: flex; align-items: center; justify-content: center;
+  gap: 3rem; width: 100%; position: relative;
+}
+.arena-character {
+  display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  transition: all 0.5s ease;
+}
+.arena-avatar {
+  width: 64px !important; height: 64px !important;
+  background-size: auto !important;
+  image-rendering: pixelated;
+  transform: scale(4) !important; transform-origin: center;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+}
+.arena-me .arena-avatar { transform: scale(4) scaleX(1) !important; }
+.arena-opp .arena-avatar { transform: scale(4) scaleX(-1) !important; }
+
+.arena-name {
+  font-family: var(--font-display); font-size: 1.2rem; font-weight: 800;
+  color: var(--text); text-shadow: 0 0 10px rgba(0,0,0,0.8);
+}
+.arena-vs {
+  font-family: var(--font-display); font-size: 2.5rem; font-weight: 900;
+  color: var(--accent); font-style: italic; opacity: 0.3;
+}
+
+/* Emote Feed */
+.emote-feed {
+  position: absolute; left: 1rem; top: 10%; bottom: 10%;
+  width: 150px; display: flex; flex-direction: column; gap: 0.5rem;
+  pointer-events: none; z-index: 100;
+}
+.emote-bubble {
+  background: rgba(42, 21, 21, 0.85);
+  border-left: 3px solid var(--accent);
+  padding: 0.5rem 0.8rem; border-radius: 4px;
+  font-size: 0.85rem; font-weight: 600;
+  animation: emoteFadeIn 4s forwards;
+}
+@keyframes emoteFadeIn {
+  0% { transform: translateX(-20px); opacity: 0; }
+  10% { transform: translateX(0); opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-20px); }
+}
+
 .table-card {
   position: absolute; width: var(--card-w); height: var(--card-h);
   border-radius: 12px; display: flex; flex-direction: column;
@@ -178,8 +227,8 @@ input:focus{border-color:var(--primary)}
   border: 2px solid var(--primary);
   transform: rotateY(0deg);
 }
-.table-card.my-side { bottom: 10%; }
-.table-card.opp-side { top: 10%; }
+.table-card.my-side { bottom: 25%; }
+.table-card.opp-side { top: 25%; }
 
 .table-card .card-emoji { font-size: 2.2rem; transform: translateZ(1px); }
 .table-card .card-label { font-size: .75rem; text-transform: uppercase; color: var(--muted); transform: translateZ(1px); }
@@ -413,6 +462,7 @@ input:focus{border-color:var(--primary)}
 .graphic-avatar {
   background-repeat: no-repeat;
   background-position: 0 0;
+  background-size: auto !important;
   animation: anim-idle 0.8s steps(4) infinite;
   width: 64px !important; height: 64px !important; border-radius: 8px !important;
   background-color: transparent;

@@ -102,7 +102,7 @@
 <!-- ══════════ GAME ══════════ -->
 <div id="screen-game" class="screen">
   <div class="game-top">
-    <div class="opp-info"><span class="opp-avatar" id="opp-avatar">?</span><div class="opp-details"><span id="opp-name">Opponent</span><span id="opp-card-count" class="card-count-badge">● ● ●</span></div></div>
+    <div class="opp-info" style="visibility:hidden"><span class="opp-avatar" id="opp-avatar">?</span><div class="opp-details"><span id="opp-name">Opponent</span><span id="opp-card-count" class="card-count-badge">● ● ●</span></div></div>
     <div class="score-board">
       <div class="score-item"><span id="my-score-num">0</span><span class="score-label" id="my-score-name">You</span></div>
       <div class="score-sep">:</div>
@@ -111,7 +111,20 @@
     <div class="round-info"><span id="round-label">Round 1 / 7</span></div>
   </div>
 
-  <div class="table-area" id="table-area"></div>
+  <div class="table-area" id="table-area">
+    <div class="emote-feed" id="emote-feed"></div>
+    <div class="arena-stage" id="arena-stage">
+      <div class="arena-character arena-me">
+        <div class="arena-avatar" id="arena-my-avatar"></div>
+        <div class="arena-name" id="arena-my-name">You</div>
+      </div>
+      <div class="arena-vs">VS</div>
+      <div class="arena-character arena-opp">
+        <div class="arena-avatar" id="arena-opp-avatar"></div>
+        <div class="arena-name" id="arena-opp-name">Opponent</div>
+      </div>
+    </div>
+  </div>
 
   <!-- Perk & Emote bar -->
   <div class="game-controls">

@@ -129,59 +129,73 @@ function playCard(i) {
 // ── Round result (Arena Clash System) ──
 function showRound(d) {
   const arena = $('table-area');
-  arena.innerHTML = '';
+  // Clear only temporary cards/rings, keep the stage and feed
+  const tempCards = arena.querySelectorAll('.table-card, .impact-ring, .table-result');
+  tempCards.forEach(c => c.remove());
   
-  // 1. Create Clashing Cards
+  // 1. Create Clashing Cards (Generic Back)
   const myCard = document.createElement('div');
   myCard.className = 'table-card my-side face-down anim-slide-in-bottom';
-  myCard.innerHTML = `<span class="card-emoji">${(CM[d.myCard]||{e:'❓'}).e}</span><span class="card-label">${(CM[d.myCard]||{e:'?'}).l}</span>`;
+  myCard.innerHTML = `<span class="card-emoji">❓</span><span class="card-label">Selecting...</span>`;
   
   const oppCard = document.createElement('div');
   oppCard.className = 'table-card opp-side face-down anim-slide-in-top';
-  const opM = d.opponentCard ? (CM[d.opponentCard]||{e:'❓'}) : d.opponentPhantom ? {e:'👻',l:'Hidden'} : {e:'❌',l:'None'};
-  oppCard.innerHTML = `<span class="card-emoji">${opM.e}</span><span class="card-label">${opM.l}</span>`;
+  oppCard.innerHTML = `<span class="card-emoji">❓</span><span class="card-label">Opponent</span>`;
   
   arena.appendChild(myCard);
   arena.appendChild(oppCard);
 
-  // 2. Flip and Clash Sequence
+  // 2. Reveal and Clash Sequence
   setTimeout(() => {
+    // Inject REAL data exactly as they start to flip (around 200ms)
+    setTimeout(() => {
+      myCard.innerHTML = `<span class="card-emoji">${(CM[d.myCard]||{e:'❓'}).e}</span><span class="card-label">${(CM[d.myCard]||{e:'?'}).l}</span>`;
+      const opM = d.opponentCard ? (CM[d.opponentCard]||{e:'❓'}) : d.opponentPhantom ? {e:'👻',l:'Hidden'} : {e:'❌',l:'None'};
+      oppCard.innerHTML = `<span class="card-emoji">${opM.e}</span><span class="card-label">${opM.l}</span>`;
+    }, 200);
+
     myCard.classList.remove('face-down'); myCard.classList.add('face-up', 'anim-flip');
     oppCard.classList.remove('face-down'); oppCard.classList.add('face-up', 'anim-flip');
     
     // Impact after flip
     setTimeout(() => {
-      // Screen Shake
       document.body.classList.add('screen-shake');
       setTimeout(() => document.body.classList.remove('screen-shake'), 300);
       
-      // Impact Ring
       const ring = document.createElement('div');
       ring.className = 'impact-ring';
       arena.appendChild(ring);
       
-      // Determine Animations
+      // Determine Animations for CARDS and AVATARS
+      const myAv = $('arena-my-avatar');
+      const oppAv = $('arena-opp-avatar');
+
       if (d.result === 'win') {
         myCard.classList.add('anim-winner-slap');
         oppCard.classList.add('anim-loser-die');
+        if (myAv) myAv.parentElement.classList.add('anim-winner-slap');
+        if (oppAv) oppAv.className = 'arena-avatar emote-death';
       } else if (d.result === 'loss') {
         oppCard.classList.add('anim-winner-slap');
         myCard.classList.add('anim-loser-die');
+        if (oppAv) oppAv.parentElement.classList.add('anim-winner-slap');
+        if (myAv) myAv.className = 'arena-avatar emote-death';
       } else {
-        // Tie effect
         myCard.style.transform = 'translateY(10px)';
         oppCard.style.transform = 'translateY(-10px)';
       }
       
-      // Show Result Text
       const res = document.createElement('div');
       res.className = `table-result ${d.result}`;
       res.textContent = d.result === 'win' ? 'VICTORY' : d.result === 'loss' ? 'DEFEAT' : 'TIE';
       arena.appendChild(res);
 
-      // Final Cleanup & State update
+      // Final Cleanup
       setTimeout(() => {
-        arena.innerHTML = '';
+        myCard.remove(); oppCard.remove(); res.remove();
+        if(myAv) { myAv.className = 'arena-avatar'; myAv.parentElement.classList.remove('anim-winner-slap'); }
+        if(oppAv) { oppAv.className = 'arena-avatar'; oppAv.parentElement.classList.remove('anim-winner-slap'); }
+        
         S.myScore=d.myScore; S.oppScore=d.opponentScore; S.round=d.round;
         S.myHand=d.newHand; S.played=false; S.activePerksRemaining=d.activePerksRemaining||[];
         renderHand(); renderOpp(d.opponentCardCount); updRound(); renderPerkBar();
@@ -397,6 +411,13 @@ socket.on('game_start', d => {
   if ($('btn-play-bot')) $('btn-play-bot').classList.remove('hidden');
   $('matchmaking-status').classList.add('hidden');
   hideOv('overlay-invite'); hideOv('overlay-round'); show('screen-game');
+  
+  // Arena Setup
+  $('arena-my-name').textContent = S.playerData.nickname || S.playerData.username;
+  $('arena-opp-name').textContent = S.opponentName;
+  setAvatar('arena-my-avatar', S.playerData.equippedAvatar, S.playerData.username);
+  setAvatar('arena-opp-avatar', S.opponentAvatar, S.opponentName);
+  
   renderHand(); renderOpp(d.opponentCardCount); updRound(); renderPerkBar();
   $('game-status').textContent='Tap a card · Hold to drag';
 });
@@ -432,21 +453,25 @@ socket.on('purchase_success', ({playerData}) => { S.playerData=playerData; apply
 
 // Emotes
 socket.on('play_emote', ({username, emoteName}) => {
+  const feed = $('emote-feed');
+  const bubble = document.createElement('div');
+  bubble.className = 'emote-bubble';
+  const displayNick = (username === S.playerData?.username) ? 'You' : (username === S.opponentName ? 'Opponent' : username);
+  bubble.textContent = `${displayNick}: ${emoteName.replace('_', ' ')}`;
+  feed.appendChild(bubble);
+  
+  // Also push to character if they exist
   let targetNode = null;
-  if(username === S.opponentName) targetNode = $('opp-avatar');
-  else if(username === S.playerData?.username) targetNode = $('menu-avatar'); // Actually, my avatar isn't visible in the game UI except in overlay... let's animate the menu avatar or round-avatar if it was there. But opp-avatar is ALWAYS visible.
+  if(username === S.opponentName) targetNode = $('arena-opp-avatar');
+  else if(username === S.playerData?.username) targetNode = $('arena-my-avatar');
   
   if (targetNode && targetNode.classList.contains('graphic-avatar')) {
-    targetNode.style.animation = 'none'; // reset
-    // trigger reflow
+    targetNode.style.animation = 'none';
     void targetNode.offsetWidth;
-    const animClass = `emote-${emoteName}`;
-    targetNode.className = `graphic-avatar ${animClass}`;
-    
-    // Resume idle after animation duration (approx 800ms)
+    targetNode.className = `graphic-avatar emote-${emoteName}`;
     setTimeout(() => {
       targetNode.className = 'graphic-avatar';
-      targetNode.style.animation = ''; // restores idle css
+      targetNode.style.animation = '';
     }, 1200);
   }
 });
@@ -535,8 +560,13 @@ $('btn-refresh-public').addEventListener('click', () => socket.emit('list_public
 // Profile / Nickname logic
 $('btn-edit-nick').addEventListener('click', () => {
   const row = $('nick-edit-row');
-  row.style.display = row.style.display === 'none' ? 'flex' : 'none';
-  if (row.style.display === 'flex') $('nick-input').value = S.playerData.nickname || '';
+  const visible = row.style.display === 'flex';
+  row.style.display = visible ? 'none' : 'flex';
+  if (!visible) {
+    $('nick-input').value = S.playerData.nickname || '';
+    $('nick-input').focus();
+    $('nick-input').select();
+  }
 });
 $('btn-save-nick').addEventListener('click', () => {
   const nick = $('nick-input').value.trim();
