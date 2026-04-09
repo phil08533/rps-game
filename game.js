@@ -12,6 +12,7 @@ let S = {
   oppCardCount: 0, activePerksRemaining: [], lbPeriod: 'alltime',
   searching: false, currentInviteId: null, opponentAvatar: null,
 };
+let _prevDialVal = -1; // tracks previous draw-dial value for smooth animation
 
 // ── Card/Perk meta ────────────────────────────────────────────
 const CM = { rock: { e:'🪨', l:'Rock' }, paper: { e:'📄', l:'Paper' }, scissors: { e:'✂️', l:'Scissors' } };
@@ -90,19 +91,26 @@ function activatePerk(id) {
 }
 
 // ── Render cards ──────────────────────────────────────────────
-function renderHand() {
+function renderHand(dealCount = 0) {
   const area = $('player-hand-area'); area.innerHTML = '';
   if (S.myHand.length === 0 && !S.played) {
     area.innerHTML = '<div class="empty-hand-msg">😬 No cards! Opponent gets a free point.</div>';
     S.played = true; $('game-status').textContent = '💀 No cards — forfeiting…';
     socket.emit('play_card', { cardIndex: -1 }); return;
   }
+  // New cards are the last `dealCount` entries in S.myHand
+  const newCardStart = dealCount > 0 ? S.myHand.length - dealCount : S.myHand.length;
   S.myHand.forEach((c, i) => {
     const el = document.createElement('div');
     el.className = 'game-card' + (S.played ? ' played' : '');
     el.dataset.idx = i; el.draggable = !S.played;
     const m = CM[c] || { e:'❓', l:'?' };
     el.innerHTML = `<span class="card-emoji">${m.e}</span><span class="card-label">${m.l}</span>`;
+    // Staggered deal animation for newly drawn cards
+    if (i >= newCardStart) {
+      el.classList.add('dealing');
+      el.style.animationDelay = `${(i - newCardStart) * 90}ms`;
+    }
     el.addEventListener('click', () => playCard(i));
     el.addEventListener('dragstart', e => { if(S.played) return e.preventDefault(); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',i); setTimeout(()=>el.classList.add('dragging'),0); _dSrc=i; });
     el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drop-target'); });
@@ -111,6 +119,42 @@ function renderHand() {
     el.addEventListener('dragend', () => document.querySelectorAll('.game-card').forEach(c=>c.classList.remove('dragging','drop-target')));
     area.appendChild(el);
   });
+}
+
+// ── Draw Dial ──────────────────────────────────────────────────
+function updateDrawDial(count) {
+  const wrap = $('draw-dial-compact');
+  const strip = $('ddc-strip');
+  if (!wrap || !strip) return;
+
+  // Match CSS digit height — 26px default, 24px on mobile, 30px on desktop
+  const DIGIT_H = parseInt(getComputedStyle(strip.firstElementChild).height) || 26;
+
+  // First reveal
+  wrap.style.display = 'flex';
+
+  if (_prevDialVal === -1) {
+    // No animation on first reveal — just set position
+    strip.style.transition = 'none';
+    strip.style.transform = `translateY(-${count * DIGIT_H}px)`;
+    strip.offsetHeight; // force reflow
+    _prevDialVal = count;
+  } else {
+    // Animate from previous value to new value
+    strip.style.transition = 'none';
+    strip.style.transform = `translateY(-${_prevDialVal * DIGIT_H}px)`;
+    strip.offsetHeight;
+    requestAnimationFrame(() => {
+      strip.style.transition = 'transform .65s cubic-bezier(.25,.46,.45,.94)';
+      strip.style.transform = `translateY(-${count * DIGIT_H}px)`;
+    });
+    _prevDialVal = count;
+  }
+
+  // Pop animation on the badge
+  wrap.classList.remove('dial-pop');
+  wrap.offsetHeight;
+  wrap.classList.add('dial-pop');
 }
 let _dSrc = -1;
 
@@ -214,10 +258,12 @@ function showRound(d) {
         myCard.remove(); oppCard.remove(); res.remove();
         if(myAv) { myAv.className = 'arena-avatar'; myAv.parentElement.classList.remove('anim-winner-slap'); }
         if(oppAv) { oppAv.className = 'arena-avatar'; oppAv.parentElement.classList.remove('anim-winner-slap'); }
-        
+
         S.myScore=d.myScore; S.oppScore=d.opponentScore; S.round=d.round;
         S.myHand=d.newHand; S.played=false; S.activePerksRemaining=d.activePerksRemaining||[];
-        renderHand(); renderOpp(d.opponentCardCount); updRound(); renderPerkBar();
+        const drawnCount = typeof d.myDraw === 'number' ? d.myDraw : 0;
+        renderHand(drawnCount); renderOpp(d.opponentCardCount); updRound(); renderPerkBar();
+        updateDrawDial(drawnCount);
         $('game-status').textContent=S.myHand.length>0?'Tap a card · Hold to drag':'Out of cards…';
       }, 2000);
       
@@ -441,21 +487,103 @@ socket.on('game_start', d => {
   S.myScore=0; S.oppScore=0; S.round=1; S.maxRounds=d.maxRounds; S.played=false;
   S.roomCode=d.room; S.isTournament=d.isTournament||false; S.tournamentCode=d.tournamentCode||null;
   S.activePerksRemaining=d.activePerksRemaining||[]; S.searching=false;
+  _prevDialVal = -1;
   // Reset matchmaking UI
   $('btn-find-match').classList.remove('hidden');
   if ($('btn-play-bot')) $('btn-play-bot').classList.remove('hidden');
   $('matchmaking-status').classList.add('hidden');
+  // Hide draw dial for new game
+  const ddWrap = $('draw-dial-compact');
+  if (ddWrap) ddWrap.style.display = 'none';
+
   hideOv('overlay-invite'); hideOv('overlay-round'); show('screen-game');
-  
+
   // Arena Setup
   $('arena-my-name').textContent = S.playerData.nickname || S.playerData.username;
   $('arena-opp-name').textContent = S.opponentName;
   setAvatar('arena-my-avatar', S.playerData.equippedAvatar, S.playerData.username);
   setAvatar('arena-opp-avatar', S.opponentAvatar, S.opponentName);
-  
+
   renderHand(); renderOpp(d.opponentCardCount); updRound(); renderPerkBar();
   $('game-status').textContent='Tap a card · Hold to drag';
+
+  // Show pre-game intro overlay
+  showGameIntro(d);
 });
+
+function showGameIntro(d) {
+  const myName = S.playerData.nickname || S.playerData.username;
+  const oppName = S.opponentName;
+
+  // Set intro names
+  $('intro-my-name').textContent = myName;
+  $('intro-opp-name').textContent = oppName;
+  $('intro-best-of').textContent = `Best of ${S.maxRounds}`;
+
+  // Set intro avatars
+  setIntroAvatar('intro-my-avatar', S.playerData.equippedAvatar, myName, false);
+  setIntroAvatar('intro-opp-avatar', S.opponentAvatar, oppName, true);
+
+  // Render my perks
+  const myPerksEl = $('intro-my-perks');
+  myPerksEl.innerHTML = '';
+  const myPerks = S.playerData.equippedPerks || [];
+  if (myPerks.length > 0) {
+    myPerks.forEach(id => {
+      const p = S.shop?.perks?.[id];
+      if (!p) return;
+      const badge = document.createElement('div');
+      badge.className = 'intro-perk-badge';
+      badge.innerHTML = `<span>${p.icon}</span><span>${p.name}</span>`;
+      myPerksEl.appendChild(badge);
+    });
+  } else {
+    const badge = document.createElement('div');
+    badge.className = 'intro-perk-badge unknown';
+    badge.textContent = 'No perks';
+    myPerksEl.appendChild(badge);
+  }
+
+  // Opponent perks hidden
+  const oppPerksEl = $('intro-opp-perks');
+  oppPerksEl.innerHTML = '';
+  const badge = document.createElement('div');
+  badge.className = 'intro-perk-badge unknown';
+  badge.textContent = '??? perks';
+  oppPerksEl.appendChild(badge);
+
+  showOv('overlay-game-intro');
+
+  // Auto-dismiss after 3s
+  setTimeout(() => {
+    const panel = document.querySelector('#overlay-game-intro .game-intro-panel');
+    if (panel) { panel.style.transition = 'opacity .35s, transform .35s'; panel.style.opacity = '0'; panel.style.transform = 'scale(.95)'; }
+    setTimeout(() => hideOv('overlay-game-intro'), 350);
+  }, 3000);
+}
+
+function setIntroAvatar(elId, avatarId, nameFallback, flipX) {
+  const el = $(elId); if (!el) return;
+  if (avatarId && avatarId.startsWith('Char')) {
+    el.classList.add('graphic-avatar');
+    el.classList.remove('f-avatar');
+    el.style.backgroundImage = `url("avatars/${avatarId}/sprite.png")`;
+    el.textContent = '';
+  } else {
+    el.classList.remove('graphic-avatar');
+    el.classList.add('f-avatar');
+    el.style.backgroundImage = 'none';
+    el.textContent = av(nameFallback);
+    el.style.display = 'flex';
+    el.style.alignItems = 'center';
+    el.style.justifyContent = 'center';
+    el.style.fontSize = '1.8rem';
+    el.style.fontWeight = '900';
+    el.style.color = '#fff';
+    el.style.background = 'linear-gradient(135deg,#c0240a,#ff6b3d)';
+    el.style.borderRadius = '8px';
+  }
+}
 
 socket.on('opponent_played', () => { if(!S.played) $('game-status').textContent='⚡ Opponent played!'; });
 socket.on('opponent_reordered', ({cardCount}) => { renderOpp(cardCount); toast('👀 Opponent rearranged'); });
