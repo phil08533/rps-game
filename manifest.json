@@ -1,0 +1,18 @@
+{
+  "name": "RPS Clash",
+  "short_name": "RPS Clash",
+  "description": "Multiplayer Rock Paper Scissors Card Game. Battle friends in real-time!",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1a0a0a",
+  "theme_color": "#e63b1a",
+  "icons": [
+    {
+      "src": "/avatars/Char 1/sprite.png",
+      "sizes": "64x64",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

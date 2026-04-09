@@ -4,7 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="description" content="RPS Clash — Multiplayer Rock Paper Scissors Card Game. Battle friends across devices." />
-  <meta name="theme-color" content="#1a0a0a" />
+  <meta name="theme-color" content="#e63b1a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="RPS Clash" />
+  <link rel="manifest" href="/manifest.json" />
   <title>RPS Clash — Multiplayer Card Game</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -139,10 +143,6 @@
       <div class="arena-character arena-me">
         <div class="arena-avatar" id="arena-my-avatar"></div>
         <div class="arena-name" id="arena-my-name">You</div>
-        <div class="draw-ticker-badge hidden" id="draw-ticker-badge">
-          <span class="dtb-label">Draw</span>
-          <span class="dtb-num" id="dtb-num">0</span>
-        </div>
       </div>
       <div class="arena-vs">
         <div>VS</div>
@@ -164,6 +164,10 @@
   <div class="game-controls">
     <div class="perk-bar" id="perk-bar"></div>
     <div class="game-ctrl-btns">
+      <div class="draw-ticker-badge hidden" id="draw-ticker-badge">
+        <span class="dtb-label">🃏</span>
+        <span class="dtb-num" id="dtb-num">0</span>
+      </div>
       <button id="btn-emote" class="btn btn-secondary btn-sm">💬</button>
       <button id="btn-view-bracket" class="btn btn-ghost btn-sm hidden">🏆</button>
     </div>
@@ -443,6 +447,19 @@
       <button id="btn-ad-close" class="btn btn-ghost hidden">Close & Claim 🪙 100</button>
       <p id="ad-wait-msg">Reward available in <span id="ad-timer-big">15</span> seconds...</p>
     </div>
+  </div>
+</div>
+
+<!-- ══════════ PWA INSTALL BANNER ══════════ -->
+<div id="pwa-install-banner" class="pwa-banner hidden">
+  <div class="pwa-banner-inner">
+    <span class="pwa-banner-icon">⚔️</span>
+    <div class="pwa-banner-text">
+      <strong>Install RPS Clash</strong>
+      <span>Play faster, offline-ready!</span>
+    </div>
+    <button id="btn-pwa-install" class="btn btn-primary btn-sm">Install</button>
+    <button id="btn-pwa-dismiss" class="btn btn-ghost btn-sm pwa-close">✕</button>
   </div>
 </div>
 
