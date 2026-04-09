@@ -163,23 +163,34 @@ input:focus{border-color:var(--primary)}
 
 /* Arena Stage (The Face-off) */
 .arena-stage {
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: flex-end; justify-content: center;
   gap: 3rem; width: 100%; position: relative;
+  padding-bottom: 2rem;
 }
 .arena-character {
   display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
-  transition: all 0.5s ease;
+  transition: all 0.5s ease; position: relative;
 }
 .arena-avatar {
   width: 64px !important; height: 64px !important;
   background-size: auto !important;
   image-rendering: pixelated;
-  transform: scale(4) !important; transform-origin: center;
+  transform: scale(4) !important; transform-origin: bottom center;
   filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
   transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
-.arena-me .arena-avatar { transform: scale(4) scaleX(1) !important; }
-.arena-opp .arena-avatar { transform: scale(4) scaleX(-1) !important; }
+.arena-me .arena-avatar { transform: scale(4) scaleX(1) !important; transform-origin: bottom center; }
+.arena-opp .arena-avatar { transform: scale(4) scaleX(-1) !important; transform-origin: bottom center; }
+
+/* Fix text initials for opponent avatar — counter the scaleX(-1) flip */
+.arena-opp .arena-avatar.f-avatar { transform: scale(4) scaleX(1) !important; }
+/* text f-avatar in arena needs display flex */
+.arena-avatar.f-avatar {
+  display: flex !important; align-items: center !important; justify-content: center !important;
+  font-size: 12px !important; font-weight: 900; color: #fff;
+  background: linear-gradient(135deg, #c0240a, #ff6b3d) !important;
+  border-radius: 50% !important; background-image: none !important;
+}
 
 .arena-name {
   font-family: var(--font-display); font-size: 1.2rem; font-weight: 800;
@@ -516,10 +527,38 @@ input:focus{border-color:var(--primary)}
   image-rendering: crisp-edges;
 }
 
-.game-controls { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 400px; }
-.emote-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
-.emote-btn { background: var(--panel-bg); border: 1px solid var(--accent); color: var(--text-color); padding: .5rem; border-radius: 4px; cursor: pointer; }
-.emote-btn:hover { background: var(--accent); color: var(--bg-color); }
+/* ── Game Controls Bar ─────────────────────────────────────── */
+.game-controls {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0; background: rgba(0,0,0,.2);
+  border-bottom: 1px solid rgba(255,100,60,.1);
+}
+.game-ctrl-btns {
+  display: flex; gap: .3rem; padding: .3rem .5rem; flex-shrink: 0;
+}
+
+/* ── Emote Overlay ─────────────────────────────────────────── */
+.emote-overlay-pos {
+  align-items: flex-end;
+  padding-bottom: 12rem;  /* above the hand area */
+  background: rgba(0,0,0,0.5) !important;
+}
+.emote-panel {
+  width: auto; max-width: 280px;
+  padding: .75rem !important; gap: .5rem !important;
+}
+.emote-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: .4rem; }
+.emote-btn {
+  background: rgba(255,80,50,.1); border: 1px solid var(--border);
+  color: var(--text); font-size: 1.4rem; padding: .4rem;
+  border-radius: 8px; cursor: pointer; transition: all .15s;
+  display: flex; align-items: center; justify-content: center;
+  aspect-ratio: 1;
+}
+.emote-btn:hover, .emote-btn:active {
+  background: rgba(255,80,50,.3); border-color: var(--primary);
+  transform: scale(1.1);
+}
 
 /* 64x64 Sprite Sheet Keyframes (Fixed via Script Analysis) */
 @keyframes anim-idle { from { background-position: 0px 0px; } to { background-position: -256px 0px; } }
@@ -574,47 +613,8 @@ input:focus{border-color:var(--primary)}
 #ad-timer-big { font-weight: 900; color: var(--accent); }
 #ad-wait-msg { opacity: 0.6; font-size: 0.9rem; }
 
-/* ══════════ DRAW DIAL ══════════ */
-.draw-dial-compact {
-  display: flex; align-items: center; gap: .3rem;
-  background: rgba(255,193,7,.1);
-  border: 1px solid rgba(255,193,7,.28);
-  border-radius: 6px;
-  padding: .15rem .45rem;
-}
-.draw-dial-compact.dial-pop {
-  animation: dialPop .45s cubic-bezier(.34,1.56,.64,1);
-}
-@keyframes dialPop {
-  0%   { transform: scale(1); }
-  45%  { transform: scale(1.22); box-shadow: 0 0 14px rgba(255,193,7,.55); }
-  100% { transform: scale(1); box-shadow: none; }
-}
-.ddc-label {
-  font-size: .6rem; color: var(--muted);
-  text-transform: uppercase; letter-spacing: .05em; font-weight: 700;
-}
-.ddc-window {
-  width: 20px; height: 26px;
-  overflow: hidden;
-  border-radius: 4px;
-  background: rgba(0,0,0,.55);
-  border: 1px solid rgba(255,193,7,.22);
-  position: relative;
-}
-.ddc-strip {
-  position: absolute; top: 0; left: 0; right: 0;
-  display: flex; flex-direction: column;
-  will-change: transform;
-}
-.ddc-strip span {
-  height: 26px;
-  display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-display);
-  font-size: 1rem; font-weight: 900;
-  color: var(--accent);
-  flex-shrink: 0; line-height: 1;
-}
+/* ══════════ DRAW DIAL (legacy — now replaced by draw-ticker-badge) ══════════ */
+.draw-dial-compact { display: none !important; }
 
 /* ══════════ CARD DEAL ANIMATION ══════════ */
 @keyframes cardDeal {
@@ -790,10 +790,12 @@ input:focus{border-color:var(--primary)}
   }
   .menu-hero { grid-column: span 2; }
 
-  .table-area { min-height: 400px; }
-  .arena-stage { gap: 4rem; }
-  .arena-me .arena-avatar  { transform: scale(5) scaleX(1)  !important; }
-  .arena-opp .arena-avatar { transform: scale(5) scaleX(-1) !important; }
+  .table-area { min-height: 420px; }
+  .arena-stage { gap: 6rem; padding-bottom: 3rem; }
+  /* Slightly smaller scale on desktop to prevent overlap */
+  .arena-me .arena-avatar  { transform: scale(4) scaleX(1)  !important; transform-origin: bottom center; }
+  .arena-opp .arena-avatar { transform: scale(4) scaleX(-1) !important; transform-origin: bottom center; }
+  .arena-opp .arena-avatar.f-avatar { transform: scale(4) scaleX(1) !important; transform-origin: bottom center; }
   .arena-name { font-size: 1.3rem; }
   .arena-vs { font-size: 3rem; }
 
@@ -806,10 +808,6 @@ input:focus{border-color:var(--primary)}
   .logo-emoji { font-size: 5rem; }
   .logo-text { font-size: 3.5rem; }
 
-  /* Bigger dial on desktop */
-  .ddc-window { width: 24px; height: 30px; }
-  .ddc-strip span { height: 30px; font-size: 1.2rem; }
-
   /* Intro */
   .game-intro-panel { gap: 2.5rem; }
   .intro-avatar-wrap { width: 130px; height: 130px; }
@@ -821,8 +819,101 @@ input:focus{border-color:var(--primary)}
 
 /* ══════════ LARGE DESKTOP (≥ 1024px) ══════════ */
 @media (min-width: 1024px) {
-  .table-area { min-height: 460px; }
+  .table-area { min-height: 480px; }
   .arena-vs { font-size: 3.5rem; }
+  .arena-stage { gap: 8rem; }
   .score-item span:first-child { font-size: 2.2rem; }
+}
+
+/* ══════════ DRAW TICKER BADGE (next to character) ══════════ */
+.draw-ticker-badge {
+  position: absolute;
+  right: -42px; top: 50%;
+  transform: translateY(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: .1rem;
+  background: rgba(255,193,7,.15);
+  border: 1px solid rgba(255,193,7,.45);
+  border-radius: 8px;
+  padding: .25rem .4rem;
+  min-width: 34px;
+  z-index: 10;
+  pointer-events: none;
+}
+.draw-ticker-badge.hidden { display: none; }
+.dtb-label { font-size: .5rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
+.dtb-num {
+  font-family: var(--font-display); font-size: 1.1rem; font-weight: 900;
+  color: var(--accent); line-height: 1;
+}
+.dtb-num.spin-tick { color: var(--primary2); }
+.dtb-num.spin-settle { animation: settlePop .3s cubic-bezier(.34,1.56,.64,1); }
+@keyframes settlePop { from{transform:scale(.7);opacity:.5} to{transform:scale(1);opacity:1} }
+
+.draw-ticker-badge.dial-pop { animation: dialPop .45s cubic-bezier(.34,1.56,.64,1); }
+@keyframes dialPop {
+  0%   { transform: translateY(-50%) scale(1); }
+  45%  { transform: translateY(-50%) scale(1.3); box-shadow: 0 0 14px rgba(255,193,7,.6); }
+  100% { transform: translateY(-50%) scale(1); box-shadow: none; }
+}
+
+/* ══════════ CARD EXIT ANIMATION (smooth slide away on play) ══════════ */
+@keyframes cardExit {
+  0%   { transform: translateY(0) scale(1); opacity: 1; }
+  20%  { transform: translateY(-14px) scale(1.06); opacity: 1; }
+  100% { transform: translateY(-180px) scale(0.75) rotate(8deg); opacity: 0; }
+}
+.game-card.card-exit {
+  animation: cardExit .5s cubic-bezier(.55, 0, .55, 1) forwards;
+  pointer-events: none; z-index: 5;
+}
+
+/* ══════════ TOURNAMENT PLAY TIMER ══════════ */
+.play-timer {
+  position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: .5rem;
+  background: rgba(0,0,0,.7); border: 1px solid rgba(255,50,50,.4);
+  border-radius: 20px; padding: .25rem .8rem;
+  pointer-events: none; z-index: 20;
+}
+.play-timer.hidden { display: none; }
+.play-timer-bar {
+  width: 80px; height: 4px; background: rgba(255,255,255,.15); border-radius: 2px; overflow: hidden;
+}
+.play-timer-bar::after {
+  content: ''; display: block; height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--danger));
+  border-radius: 2px;
+  width: var(--timer-pct, 100%);
+  transition: width 1s linear;
+}
+.play-timer-text {
+  font-family: var(--font-display); font-size: .9rem; font-weight: 900;
+  color: var(--danger); min-width: 28px; text-align: center;
+}
+
+/* ══════════ TOURNAMENT BRACKET VIEW ══════════ */
+.bracket-panel { max-height: 80vh; overflow-y: auto; }
+.bracket-view { display: flex; flex-direction: column; gap: 1rem; width: 100%; }
+.bracket-round { display: flex; flex-direction: column; gap: .5rem; }
+.bracket-round-title { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
+.bracket-match {
+  display: flex; flex-direction: column; gap: .2rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: .5rem .75rem;
+}
+.bracket-match.match-ongoing { border-color: var(--accent); }
+.bracket-player {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: .85rem; font-weight: 600;
+}
+.bracket-player.winner { color: var(--accent); }
+.bracket-player.loser  { color: var(--muted); opacity: .6; }
+.bracket-score { font-family: var(--font-display); font-size: .9rem; font-weight: 900; color: var(--text); }
+.bracket-vs { font-size: .65rem; color: var(--muted); text-align: center; padding: .1rem 0; }
+
+/* ══════════ MOBILE RESPONSIVE ADDITIONS ══════════ */
+@media (max-width: 480px) {
+  .draw-ticker-badge { right: -36px; }
+  .emote-overlay-pos { padding-bottom: 10rem; }
 }
 

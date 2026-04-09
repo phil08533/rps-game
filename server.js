@@ -216,10 +216,12 @@ function getShopData() {
 // ── Room ──────────────────────────────────────────────────────
 function makeRoom(hostId, hostName) {
   const code = uniqueRoom();
+  const hostPd = players[hostName];
   rooms[code] = {
     code, state: 'waiting',
     players: [{
       socketId: hostId, username: hostName,
+      avatar: hostPd?.equippedAvatar || null,
       hand: dealHand(hostName), score: 0,
       playedCard: null, playedIndex: -1,
       activePerkThisRound: null,
@@ -228,6 +230,7 @@ function makeRoom(hostId, hostName) {
     }],
     round: 1, maxRounds: 7, history: [],
     tournamentCode: null, tournamentMatchIdx: null,
+    playTimeLimit: 0,
     encorePending: null,
   };
   return rooms[code];
@@ -395,8 +398,11 @@ function processRound(room) {
   const maxWins  = Math.ceil(room.maxRounds / 2);
   const gameOver = p1.score >= maxWins || p2.score >= maxWins || room.round >= room.maxRounds;
 
+  // Clear round timers before resolving (player already played)
+  clearRoundTimers(room);
+
   if (gameOver) { finishGame(room, draw1, draw2, null, perkMessages, p1Phantom, p2Phantom); return; }
-  
+
   // Tie rounds do not count towards the total rounds in Best of 7
   if (result !== 'tie') {
     room.round++;
@@ -422,6 +428,21 @@ function processRound(room) {
       activePerksRemaining: getActivePerksRemaining(p),
     });
   });
+
+  // Broadcast live score to tournament observers
+  if (room.tournamentCode && tournaments[room.tournamentCode]) {
+    io.to(room.tournamentCode).emit('tournament_match_score', {
+      matchIdx: room.tournamentMatchIdx,
+      roundIdx: tournaments[room.tournamentCode].currentRound,
+      scores: { [p1.username]: p1.score, [p2.username]: p2.score },
+      round: room.round,
+    });
+  }
+
+  // Schedule auto-play timers for next round if time limit set
+  if (room.playTimeLimit) {
+    setTimeout(() => scheduleRoundTimers(room), 4500); // after client animations (~3.8s)
+  }
 }
 
 function broadcastEncoreReplay(room, perkMessages) {
@@ -451,8 +472,8 @@ function finishGame(room, draw1, draw2, reason, perkMessages, p1Phantom, p2Phant
   if (p1.score > p2.score) winner = p1.username;
   else if (p2.score > p1.score) winner = p2.username;
 
-  if (room.tournamentCode) onTournamentMatchEnd(room, winner);
-
+  // Emit game_over first, then handle tournament advancement after a delay
+  // so clients process game_over before receiving game_start for next round
   [p1, p2].forEach((p, idx) => {
     const opp   = idx === 0 ? p2 : p1;
     const myDraw = idx === 0 ? (draw1||0) : (draw2||0);
@@ -474,11 +495,17 @@ function finishGame(room, draw1, draw2, reason, perkMessages, p1Phantom, p2Phant
       winner, reason: reason || null,
       myScore: p.score, opponentScore: opp.score,
       myDraw, finalHand: [...p.hand],
-      coinsEarned, 
+      coinsEarned,
       playerData: getFormattedPlayerData(pd),
       myPerkMessages: myPerks,
+      isTournament: !!room.tournamentCode,
     });
   });
+  // Handle tournament AFTER game_over is sent to avoid race condition
+  // (game_start for round 2 must not arrive before game_over for round 1)
+  if (room.tournamentCode) {
+    setTimeout(() => onTournamentMatchEnd(room, winner), 4500);
+  }
   setTimeout(() => { delete rooms[room.code]; }, 60000);
 }
 
@@ -489,8 +516,27 @@ function onTournamentMatchEnd(room, winnerUsername) {
   const match = t.bracket[t.currentRound]?.[room.tournamentMatchIdx];
   if (!match) return;
   match.winner = winnerUsername; match.done = true;
+
+  // Broadcast bracket update to all tournament participants
+  io.to(t.code).emit('tournament_bracket_update', { bracket: t.bracket, currentRound: t.currentRound });
+
   const currentRound = t.bracket[t.currentRound];
-  if (!currentRound.every(m => m.done)) return;
+  if (!currentRound.every(m => m.done)) {
+    // Some matches still in progress — notify winner they're waiting
+    if (winnerUsername) {
+      const winnerEntry = t.players.find(p => p.username === winnerUsername);
+      if (winnerEntry) {
+        const winnerSock = io.sockets.sockets.get(winnerEntry.socketId);
+        if (winnerSock) {
+          winnerSock.emit('tournament_waiting', {
+            bracket: t.bracket, currentRound: t.currentRound,
+            message: 'You won! Waiting for other matches to finish…',
+          });
+        }
+      }
+    }
+    return;
+  }
   const winners = currentRound.map(m => m.winner).filter(Boolean);
   if (winners.length <= 1) { endTournament(t, winners[0] || currentRound[0].winner); return; }
   const nextRound = [];
@@ -504,14 +550,40 @@ function onTournamentMatchEnd(room, winnerUsername) {
 }
 
 function startTournamentRound(t) {
+  // Notify all tournament participants of new round
+  io.to(t.code).emit('tournament_round_start', { round: t.currentRound + 1, bracket: t.bracket });
+
   t.bracket[t.currentRound].forEach((match, idx) => {
-    if (match.done) return;
+    if (match.done) {
+      // Bye — player advances automatically, no match needed
+      if (match.winner) {
+        const byeEntry = t.players.find(p => p.username === match.winner);
+        if (byeEntry) {
+          const byeSock = io.sockets.sockets.get(byeEntry.socketId);
+          if (byeSock) byeSock.emit('tournament_waiting', {
+            bracket: t.bracket, currentRound: t.currentRound,
+            message: 'You have a bye — waiting for other matches…',
+          });
+        }
+      }
+      return;
+    }
     const p1E = t.players.find(p => p.username === match.p1);
     const p2E = t.players.find(p => p.username === match.p2);
     if (!p1E || !p2E) return;
+
+    // Update socketIds in case of reconnects
+    for (const [, s] of io.sockets.sockets) {
+      if (s.username === match.p1) p1E.socketId = s.id;
+      if (s.username === match.p2) p2E.socketId = s.id;
+    }
+
     const s1 = io.sockets.sockets.get(p1E.socketId);
     const s2 = io.sockets.sockets.get(p2E.socketId);
-    if (!s1 || !s2) return;
+    if (!s1 || !s2) {
+      console.warn(`⚠️ Cannot start match: missing socket for ${!s1 ? match.p1 : match.p2}`);
+      return;
+    }
     const room = makeRoom(p1E.socketId, match.p1);
     room.players.push({
       socketId: p2E.socketId, username: match.p2,
@@ -519,21 +591,32 @@ function startTournamentRound(t) {
       activePerkThisRound: null, activePerksUsedThisGame: [], winStreak: 0,
     });
     room.state = 'playing'; room.tournamentCode = t.code; room.tournamentMatchIdx = idx;
+    room.playTimeLimit = t.playTimeLimit || 0;
     match.roomCode = room.code;
     s1.join(room.code); s2.join(room.code);
     s1.currentRoom = room.code; s2.currentRoom = room.code;
+    s1.currentTournament = t.code; s2.currentTournament = t.code;
+
     [p1E, p2E].forEach((pe, pIdx) => {
       const sock = io.sockets.sockets.get(pe.socketId);
       const opp = pIdx === 0 ? p2E : p1E;
+      const oppPd = getPlayer(opp.username);
       if (sock) sock.emit('game_start', {
-        room: room.code, myIndex: pIdx, myHand: room.players[pIdx].hand,
-        opponentName: opp.username, opponentCardCount: room.players[pIdx===0?1:0].hand.length,
+        room: room.code, myIndex: pIdx, myHand: [...room.players[pIdx].hand],
+        opponentName: oppPd.nickname || opp.username,
+        opponentCardCount: room.players[pIdx===0?1:0].hand.length,
+        opponentAvatar: oppPd.equippedAvatar || null,
         round: 1, maxRounds: 7, isTournament: true, tournamentCode: t.code,
+        playTimeLimit: room.playTimeLimit,
         activePerksRemaining: getActivePerksRemaining(room.players[pIdx]),
       });
     });
+
+    // Schedule auto-play timers for first round if time limit set
+    if (room.playTimeLimit) {
+      setTimeout(() => scheduleRoundTimers(room), 3000); // after intro animation
+    }
   });
-  io.to(t.code).emit('tournament_round_start', { round: t.currentRound + 1, bracket: t.bracket });
 }
 
 function endTournament(t, champion) {
@@ -561,6 +644,40 @@ function kickOffTournament(t) {
   startTournamentRound(t);
 }
 
+// ── Tournament play timers ────────────────────────────────────
+function scheduleRoundTimers(room) {
+  if (!room.playTimeLimit || room.state !== 'playing') return;
+  if (!room.roundTimers) room.roundTimers = new Map();
+  room.players.forEach(p => {
+    if (p.playedCard !== null || p.socketId === 'BOT') return;
+    io.to(p.socketId).emit('play_timer_start', { seconds: room.playTimeLimit });
+    const timer = setTimeout(() => autoPlayCard(room, p), room.playTimeLimit * 1000);
+    room.roundTimers.set(p.socketId, timer);
+  });
+}
+
+function clearRoundTimers(room) {
+  if (!room.roundTimers) return;
+  room.roundTimers.forEach(t => clearTimeout(t));
+  room.roundTimers.clear();
+}
+
+function autoPlayCard(room, player) {
+  if (!room || room.state !== 'playing' || player.playedCard !== null) return;
+  if (player.hand.length === 0) {
+    player.playedCard = null; player.playedIndex = -1;
+  } else {
+    player.playedIndex = 0;
+    player.playedCard = player.hand.splice(0, 1)[0];
+  }
+  const opp = room.players.find(p => p.socketId !== player.socketId);
+  if (opp) io.to(opp.socketId).emit('opponent_played');
+  io.to(player.socketId).emit('auto_played', { card: player.playedCard });
+  const p1Done = room.players[0].playedCard !== null || room.players[0].hand.length === 0;
+  const p2Done = room.players[1].playedCard !== null || room.players[1].hand.length === 0;
+  if (p1Done && p2Done) processRound(room);
+}
+
 // ── Socket ────────────────────────────────────────────────────
 io.on('connection', (socket) => {
 
@@ -582,23 +699,34 @@ io.on('connection', (socket) => {
           clearTimeout(disconnectTimeouts.get(socket.username));
           disconnectTimeouts.delete(socket.username);
         }
-        
+
         // Update socket mapping
         room.players[playerIdx].socketId = socket.id;
         socket.currentRoom = rejoinRoom;
         socket.join(rejoinRoom);
-        
-        // Sync state back to client
+        if (room.tournamentCode) socket.currentTournament = room.tournamentCode;
+
+        // Sync state back to client — send player_data first (no menu redirect)
+        const p = getPlayer(socket.username);
+        socket.emit('player_data', getFormattedPlayerData(p));
+        // Also emit shop data so client has it
+        socket.emit('registered', { playerData: p, shop: getShopData(), isRejoin: true });
+
         const opp = room.players[1 - playerIdx];
+        const oppPd = getPlayer(opp.username);
         socket.emit('game_start', {
           room: room.code, myIndex: playerIdx, myHand: [...room.players[playerIdx].hand],
-          opponentName: opp.username, opponentCardCount: opp.hand.length,
-          opponentAvatar: opp.avatar,
+          opponentName: oppPd.nickname || opp.username, opponentCardCount: opp.hand.length,
+          opponentAvatar: oppPd.equippedAvatar || opp.avatar,
           myScore: room.players[playerIdx].score, opponentScore: opp.score,
-          round: room.round, played: room.players[playerIdx].playedCard !== null
+          round: room.round, maxRounds: room.maxRounds,
+          played: room.players[playerIdx].playedCard !== null,
+          isTournament: !!room.tournamentCode, tournamentCode: room.tournamentCode || null,
+          activePerksRemaining: getActivePerksRemaining(room.players[playerIdx]),
         });
-        
+
         console.log(`📡 Player ${socket.username} re-joined room ${rejoinRoom}`);
+        return; // Don't call emitPlayerData — that would trigger registered → show menu
       }
     }
 
@@ -846,6 +974,12 @@ io.on('connection', (socket) => {
     const opp = room.players.find(p => p.socketId !== socket.id);
     if (!p || p.playedCard !== null) return;
 
+    // Cancel auto-play timer for this player since they played manually
+    if (room.roundTimers) {
+      const t = room.roundTimers.get(socket.id);
+      if (t) { clearTimeout(t); room.roundTimers.delete(socket.id); }
+    }
+
     // Check if opponent used FREEZE on us
     if (opp.activePerkThisRound === 'freeze' && p.hand.length > 0) {
       cardIndex = 0; // forced to leftmost
@@ -986,19 +1120,21 @@ io.on('connection', (socket) => {
   });
 
   // ── Tournament ──
-  socket.on('create_tournament', ({ name, entryFee, maxPlayers, isPublic }) => {
+  socket.on('create_tournament', ({ name, entryFee, maxPlayers, isPublic, playTimeLimit }) => {
     if (!socket.username) return socket.emit('error', { message: 'Not registered' });
     const pd = getPlayer(socket.username);
     const fee = Math.max(0, Number(entryFee) || 0);
     const max = [4, 8].includes(Number(maxPlayers)) ? Number(maxPlayers) : 4;
+    const ptl = Math.max(5, Math.min(60, Number(playTimeLimit) || 10)); // 5–60s, default 10
     if (pd.coins < fee) return socket.emit('error', { message: 'Not enough coins' });
     pd.coins -= fee;
     const code = uniqueTournament();
     tournaments[code] = {
       code, name: (name || 'Tournament').slice(0, 30),
       entryFee: fee, maxPlayers: max, prizePool: fee,
+      playTimeLimit: ptl,
       state: 'waiting', currentRound: 0, isPublic: !!isPublic,
-      players: [{ username: socket.username, socketId: socket.id }],
+      players: [{ username: socket.username, socketId: socket.id, avatar: pd.equippedAvatar }],
       bracket: [],
     };
     socket.join(code); socket.currentTournament = code;
@@ -1014,7 +1150,7 @@ io.on('connection', (socket) => {
     const pd = getPlayer(socket.username);
     if (pd.coins < t.entryFee) return socket.emit('error', { message: 'Not enough coins' });
     pd.coins -= t.entryFee; t.prizePool += t.entryFee;
-    t.players.push({ username: socket.username, socketId: socket.id });
+    t.players.push({ username: socket.username, socketId: socket.id, avatar: pd.equippedAvatar });
     socket.join(code); socket.currentTournament = code;
     io.to(code).emit('tournament_update', { tournament: t });
     socket.emit('joined_tournament', { tournament: t, playerData: { ...pd } });
@@ -1034,6 +1170,13 @@ io.on('connection', (socket) => {
       .filter(t => t.isPublic && t.state === 'waiting')
       .map(t => ({ code: t.code, name: t.name, entryFee: t.entryFee, players: t.players.length, maxPlayers: t.maxPlayers, prizePool: t.prizePool }));
     socket.emit('public_tournaments', { tournaments: list });
+  });
+
+  socket.on('get_tournament_bracket', ({ code }) => {
+    const tCode = (code || socket.currentTournament)?.toUpperCase();
+    const t = tCode ? tournaments[tCode] : null;
+    if (!t) return;
+    socket.emit('tournament_bracket_update', { bracket: t.bracket, currentRound: t.currentRound });
   });
 
   // ── Leaderboard ──
