@@ -429,7 +429,18 @@
     client_id: "1040686889031-eooksadk3knuc5kq5stirtutemo58j6l.apps.googleusercontent.com",
     callback: handleCredentialResponse
   });
+  function handleCredentialResponse(response) {
+  console.log("Google Credential Response:", response);
+
+  // Example decode:
+  const data = jwt_decode(response.credential);
+  console.log("User:", data);
+
+  // TODO: send token to your server or store user info
+}
+
 </script>
+<script src="https://cdn.jsdelivr.net/npm/jwt-decode@3.1.2/build/jwt-decode.min.js"></script>
 
 </body>
 </html>
