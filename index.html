@@ -411,8 +411,8 @@
     </div>
     <div class="ad-sim-body">
       <div class="ad-sim-logo">⚔️</div>
-      <div class="ad-sim-title">RPS CLASH PREMIUM</div>
-      <div class="ad-sim-sub">Upgrade your experience at rps-clash.com</div>
+      <div class="ad-sim-title">RPS CLASH</div>
+      <div class="ad-sim-sub">Thanks for playing!</div>
     </div>
     <div class="ad-sim-footer">
       <button id="btn-ad-close" class="btn btn-ghost hidden">Close & Claim 🪙 100</button>
@@ -423,5 +423,13 @@
 
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script src="game.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+  google.accounts.id.initialize({
+    client_id: "1040686889031-eooksadk3knuc5kq5stirtutemo58j6l.apps.googleusercontent.com",
+    callback: handleCredentialResponse
+  });
+</script>
+
 </body>
 </html>
