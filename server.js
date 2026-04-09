@@ -7,7 +7,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } });
 
-app.use(express.static(path.join(__dirname, 'docs')));
+app.use(express.static(__dirname));
 app.get('/health', (_, res) => res.json({ status: 'ok' }));
 
 // ── Stores ────────────────────────────────────────────────────
@@ -51,6 +51,8 @@ const rooms       = {};
 const tournaments = {};
 const matchQueue  = [];   // [{ socketId, username, wins }]
 const pendingInvites = {}; // inviteId → { from, to, roomCode }
+const disconnectTimeouts = new Map(); // username → setTimeout ID
+
 
 // ── Constants ─────────────────────────────────────────────────
 const CARDS = ['rock', 'paper', 'scissors'];
@@ -118,6 +120,7 @@ function getPlayer(username) {
       wins: 0, losses: 0, ties: 0, gamesPlayed: 0,
       friendCode: Math.floor(100000 + Math.random() * 900000).toString(),
       nickname: username.slice(0, 15),
+      lastDailyRewardDate: ''
     };
   }
   // Data migration for old accounts
@@ -128,6 +131,9 @@ function getPlayer(username) {
   if (!players[username].friendCode || players[username].friendCode.length < 6) {
     players[username].friendCode = Math.floor(100000 + Math.random() * 900000).toString();
     players[username].nickname = username.slice(0, 15);
+  }
+  if (players[username].lastDailyRewardDate === undefined) {
+    players[username].lastDailyRewardDate = '';
   }
   return players[username];
 }
@@ -390,8 +396,11 @@ function processRound(room) {
   const gameOver = p1.score >= maxWins || p2.score >= maxWins || room.round >= room.maxRounds;
 
   if (gameOver) { finishGame(room, draw1, draw2, null, perkMessages, p1Phantom, p2Phantom); return; }
-
-  room.round++;
+  
+  // Tie rounds do not count towards the total rounds in Best of 7
+  if (result !== 'tie') {
+    room.round++;
+  }
 
   [p1, p2].forEach((p, idx) => {
     const opp = idx === 0 ? p2 : p1;
@@ -457,12 +466,16 @@ function finishGame(room, draw1, draw2, reason, perkMessages, p1Phantom, p2Phant
       if (isWin) { pd.wins++; trackWin(p.username); } else if (isLoss) pd.losses++; else pd.ties++;
     }
     pd.gamesPlayed++;
+    const s = Array.from(io.sockets.sockets.values()).find(so => so.socketId === p.socketId);
+    if (s) s.lastMatchCoins = coinsEarned;
+
     const myPerks = (perkMessages||[]).filter(m => m.player === idx+1).map(m => m.msg);
     io.to(p.socketId).emit('game_over', {
       winner, reason: reason || null,
       myScore: p.score, opponentScore: opp.score,
       myDraw, finalHand: [...p.hand],
-      coinsEarned, playerData: { ...pd },
+      coinsEarned, 
+      playerData: getFormattedPlayerData(pd),
       myPerkMessages: myPerks,
     });
   });
@@ -551,14 +564,45 @@ function kickOffTournament(t) {
 // ── Socket ────────────────────────────────────────────────────
 io.on('connection', (socket) => {
 
-  socket.on('register', ({ username }) => {
+  socket.on('register', ({ username, rejoinRoom }) => {
     if (!username || username.length < 2 || username.length > 20) return socket.emit('error', { message: 'Username must be 2–20 characters' });
     const u = username.trim().toLowerCase();
     if (BLACKLIST.some(b => u.includes(b))) return socket.emit('error', { message: 'That username is restricted.' });
     
     const pd = getPlayer(username.trim());
     socket.username = pd.username;
-    socket.emit('registered', { playerData: pd, shop: getShopData() });
+
+    // Handle re-joining
+    if (rejoinRoom && rooms[rejoinRoom]) {
+      const room = rooms[rejoinRoom];
+      const playerIdx = room.players.findIndex(p => p.username === socket.username);
+      if (playerIdx !== -1) {
+        // Cancel disconnect timeout if any
+        if (disconnectTimeouts.has(socket.username)) {
+          clearTimeout(disconnectTimeouts.get(socket.username));
+          disconnectTimeouts.delete(socket.username);
+        }
+        
+        // Update socket mapping
+        room.players[playerIdx].socketId = socket.id;
+        socket.currentRoom = rejoinRoom;
+        socket.join(rejoinRoom);
+        
+        // Sync state back to client
+        const opp = room.players[1 - playerIdx];
+        socket.emit('game_start', {
+          room: room.code, myIndex: playerIdx, myHand: [...room.players[playerIdx].hand],
+          opponentName: opp.username, opponentCardCount: opp.hand.length,
+          opponentAvatar: opp.avatar,
+          myScore: room.players[playerIdx].score, opponentScore: opp.score,
+          round: room.round, played: room.players[playerIdx].playedCard !== null
+        });
+        
+        console.log(`📡 Player ${socket.username} re-joined room ${rejoinRoom}`);
+      }
+    }
+
+    emitPlayerData(socket);
   });
 
     socket.on('send_emote', ({ emoteName }) => {
@@ -1026,6 +1070,48 @@ io.on('connection', (socket) => {
     socket.emit('friends_list', { friends: getFriendsList(socket.username) });
   });
 
+  socket.on('claim_daily_reward', () => {
+    if (!socket.username) return;
+    const p = getPlayer(socket.username);
+    const today = new Date().toISOString().slice(0,10);
+    if (p.lastDailyRewardDate !== today && !p.username.startsWith('Guest_')) {
+      p.coins += 100;
+      p.lastDailyRewardDate = today;
+      emitPlayerData(socket);
+    }
+  });
+
+  const adCooldowns = new Map();
+  socket.on('claim_ad_reward', () => {
+    if (!socket.username) return;
+    const now = Date.now();
+    const last = adCooldowns.get(socket.username) || 0;
+    if (now - last < 5000) return; // 5s cooldown
+
+    const p = getPlayer(socket.username);
+    p.coins += 100;
+    adCooldowns.set(socket.username, now);
+    emitPlayerData(socket);
+  });
+
+  socket.on('double_reward_ad', () => {
+    if (!socket.username || !socket.lastMatchCoins) return;
+    const p = getPlayer(socket.username);
+    p.coins += socket.lastMatchCoins; // Add the same amount again to double it
+    socket.lastMatchCoins = 0; // Prevent multiple doubling
+    emitPlayerData(socket);
+  });
+
+  socket.on('forfeit', () => {
+    if (!socket.username || !socket.currentRoom) return;
+    const room = rooms[socket.currentRoom];
+    if (!room || room.state !== 'playing') return;
+    
+    const playerIdx = room.players.findIndex(p => p.username === socket.username);
+    const winners = [room.players[1 - playerIdx].username];
+    finishGame(room, 0, 0, 'forfeit');
+  });
+
   // ── Disconnect ──
   socket.on('disconnect', () => {
     // Remove from matchmaking queue
@@ -1037,8 +1123,19 @@ io.on('connection', (socket) => {
       const room = rooms[roomCode];
       if (room.state === 'playing') {
         const remaining = room.players.find(p => p.socketId !== socket.id);
-        if (remaining) finishGame(room, 0, 0, 'disconnect');
-        else delete rooms[roomCode];
+        if (remaining) {
+          // Grace period instead of immediate win
+          console.log(`⌛ Grace period started for ${socket.username}`);
+          const timeout = setTimeout(() => {
+            if (rooms[roomCode] && room.state === 'playing') {
+              finishGame(room, 0, 0, 'disconnect');
+              disconnectTimeouts.delete(socket.username);
+            }
+          }, 30000); // 30 seconds
+          disconnectTimeouts.set(socket.username, timeout);
+        } else {
+          delete rooms[roomCode];
+        }
       }
     }
   });
@@ -1065,6 +1162,23 @@ function isOnline(username) {
     if (s.username === username) return true;
   }
   return false;
+}
+
+function getFormattedPlayerData(p) {
+  const today = new Date().toISOString().slice(0,10);
+  return {
+    ...p,
+    hasDailyReward: p.lastDailyRewardDate !== today && !p.username.startsWith('Guest_')
+  };
+}
+
+function emitPlayerData(socket) {
+  if (!socket.username) return;
+  const p = getPlayer(socket.username);
+  const data = getFormattedPlayerData(p);
+  socket.emit('player_data', data);
+  // Also send registered for legacy compatibility
+  socket.emit('registered', { playerData: p, shop: getShopData() });
 }
 
 const PORT = process.env.PORT || 3000;

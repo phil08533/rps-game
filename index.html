@@ -1,30 +1,386 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>RPS Card Game</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="description" content="RPS Clash — Multiplayer Rock Paper Scissors Card Game. Battle friends across devices." />
+  <meta name="theme-color" content="#1a0a0a" />
+  <title>RPS Clash — Multiplayer Card Game</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Outfit:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- Google AdSense Readiness for rps-clash.com -->
+  <!-- Monetag Readiness -->
+  <!-- <script src="https://alwingulla.com/88/p.js" data-automated="true" defer></script> -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').then(reg => {
+          console.log('SW registered:', reg);
+        }).catch(err => {
+          console.log('SW failed:', err);
+        });
+      });
+    }
+  </script>
 </head>
 <body>
 
-<h1>Rock Paper Scissors — Card Game</h1>
+<div class="global-fire-bg"></div>
+<div class="fire-particles" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
 
-<div id="game">
+<div id="toast" class="toast"></div>
 
-    <div class="hand">
-        <h2>Your Hand</h2>
-        <div id="player-hand" class="cards"></div>
+<!-- ══════════ LOGIN ══════════ -->
+<div id="screen-login" class="screen active">
+  <div class="login-content">
+    <div class="logo-wrap">
+      <span class="logo-emoji">⚔️</span>
+      <h1 class="logo-text">RPS <span class="grad">CLASH</span></h1>
+      <p class="logo-sub">Enter the Arena</p>
     </div>
-
-    <div class="hand">
-        <h2>CPU Hand</h2>
-        <div id="cpu-hand" class="cards"></div>
+    <div class="card-panel login-panel">
+      <!-- Google Auth -->
+      <div id="g_id_onload"
+         data-client_id="587233718402-1vee2on6jjpndl4mh7t6i2dgueg105tn.apps.googleusercontent.com"
+         data-context="signin"
+         data-ux_mode="popup"
+         data-callback="handleGoogleLogin"
+         data-auto_prompt="false">
+      </div>
+      <div class="g_id_signin"
+         data-type="standard"
+         data-shape="rectangular"
+         data-theme="outline"
+         data-text="signin_with"
+         data-size="large"
+         data-logo_alignment="left">
+      </div>
+      
+      <div class="divider-or" style="margin: 1.5rem 0 1rem;"><span>or play as guest</span></div>
+      
+      <label for="username-input" class="field-label">Warrior Name</label>
+      <input id="username-input" type="text" maxlength="20" placeholder="e.g. BladeRunner" autocomplete="off" />
+      <button id="btn-login" class="btn btn-secondary btn-full">Enter as Guest</button>
     </div>
-
-    <div id="result"></div>
-
+    <p class="version-tag">v4.0 · Google Auth · Avatars</p>
+  </div>
 </div>
 
-<script src="script.js"></script>
+<!-- ══════════ MENU ══════════ -->
+<div id="screen-menu" class="screen">
+  <header class="top-bar">
+    <div class="player-pill"><span class="pill-avatar" id="menu-avatar">?</span><span id="menu-username">–</span><span id="menu-tag" class="user-tag" style="opacity:0.6;font-size:0.8rem;margin-left:2px">#000000</span></div>
+    <div class="coins-pill"><span class="coin-icon">🪙</span><span id="menu-coins">0</span></div>
+  </header>
+  <main class="menu-grid">
+    <div class="menu-hero">
+      <span class="hero-emoji">🔥</span>
+      <h2>Ready to Battle?</h2>
+      <p id="menu-stats">Wins: 0 · Losses: 0 · Games: 0</p>
+    </div>
+    <button id="btn-quickplay" class="menu-card btn-card"><span class="mc-icon">⚔️</span><span class="mc-title">Quick Play</span><span class="mc-sub">1v1 · Best of 7</span></button>
+    <button id="btn-tournament-menu" class="menu-card btn-card"><span class="mc-icon">🏆</span><span class="mc-title">Tournament</span><span class="mc-sub">Compete for coins</span></button>
+    <button id="btn-shop" class="menu-card btn-card"><span class="mc-icon">🛒</span><span class="mc-title">Armory</span><span class="mc-sub">Skins, Perks &amp; Slots</span></button>
+    <button id="btn-profile" class="menu-card btn-card"><span class="mc-icon">👤</span><span class="mc-title">Profile</span><span class="mc-sub">Stats &amp; loadout</span></button>
+    <button id="btn-leaderboard" class="menu-card btn-card"><span class="mc-icon">📊</span><span class="mc-title">Leaderboard</span><span class="mc-sub">Top warriors</span></button>
+    <button id="btn-friends" class="menu-card btn-card"><span class="mc-icon">🤝</span><span class="mc-title">Friends</span><span class="mc-sub">Add &amp; challenge</span></button>
+  </main>
+</div>
+
+<div id="screen-quickplay" class="screen">
+  <div class="nav-bar"><button class="btn-back" data-target="screen-menu">← Back</button><h2>Quick Play</h2><div></div></div>
+  <div class="content-wrap">
+    <button id="btn-find-match" class="btn btn-primary btn-full">🔥 Find Random Match</button>
+    <div id="matchmaking-status" class="lobby-wait hidden"><div class="spinner"></div><p>Searching for opponent…</p><button id="btn-cancel-match" class="btn btn-ghost btn-full" style="margin-top:.5rem">Cancel Search</button></div>
+    <button id="btn-play-bot" class="btn btn-secondary btn-full" style="margin-top:.5rem; border-color:var(--accent); color:var(--accent)">🤖 Play VS AI</button>
+    <div class="divider-or"><span>or private room</span></div>
+    <button id="btn-create" class="btn btn-secondary btn-full">✏️ Create Room</button>
+    <div class="join-row"><input id="join-code-input" type="text" maxlength="4" placeholder="Room code" class="code-input" autocomplete="off" /><button id="btn-join" class="btn btn-secondary">Join</button></div>
+  </div>
+</div>
+
+<!-- ══════════ LOBBY ══════════ -->
+<div id="screen-lobby" class="screen">
+  <div class="nav-bar"><button class="btn-back" data-target="screen-menu">← Cancel</button><h2>Room Lobby</h2><div></div></div>
+  <div class="content-wrap lobby-content">
+    <p class="lobby-label">Share this code with your opponent:</p>
+    <div class="code-display" id="lobby-code">----</div>
+    <button id="btn-copy-code" class="btn btn-ghost">📋 Copy Code</button>
+    <div class="lobby-wait"><div class="spinner"></div><p id="lobby-status">Waiting for opponent…</p></div>
+  </div>
+</div>
+
+<!-- ══════════ GAME ══════════ -->
+<div id="screen-game" class="screen">
+  <div class="game-top">
+    <div class="opp-info" style="visibility:hidden"><span class="opp-avatar" id="opp-avatar">?</span><div class="opp-details"><span id="opp-name">Opponent</span><span id="opp-card-count" class="card-count-badge">● ● ●</span></div></div>
+    <div class="score-board">
+      <div class="score-item"><span id="my-score-num">0</span><span class="score-label" id="my-score-name">You</span></div>
+      <div class="score-sep">:</div>
+      <div class="score-item"><span id="opp-score-num">0</span><span class="score-label">Opp</span></div>
+    </div>
+    <div class="round-info"><span id="round-label">Round 1 / 7</span></div>
+  </div>
+
+  <div class="table-area" id="table-area">
+    <div class="emote-feed" id="emote-feed"></div>
+    <div class="arena-stage" id="arena-stage">
+      <div class="arena-character arena-me">
+        <div class="arena-avatar" id="arena-my-avatar"></div>
+        <div class="arena-name" id="arena-my-name">You</div>
+      </div>
+      <div class="arena-vs">
+        <div>VS</div>
+        <button id="btn-forfeit" class="btn-forfeit" title="Forfeit Match">🏳️</button>
+      </div>
+      <div class="arena-character arena-opp">
+        <div class="arena-avatar" id="arena-opp-avatar"></div>
+        <div class="arena-name" id="arena-opp-name">Opponent</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Perk & Emote bar -->
+  <div class="game-controls">
+    <div class="perk-bar" id="perk-bar"></div>
+    <button id="btn-emote" class="btn btn-secondary btn-sm" style="margin: .5rem; pointer-events: auto;">💬 Emote</button>
+  </div>
+
+  <div class="opp-hand-area" id="opp-hand-area"></div>
+  <div class="game-status" id="game-status">Tap a card to play</div>
+  <div class="player-hand-area" id="player-hand-area"></div>
+</div>
+
+<!-- ══════════ ROUND RESULT OVERLAY ══════════ -->
+<div id="overlay-round" class="overlay hidden">
+  <div class="overlay-panel round-panel">
+    <div class="battle-row">
+      <div class="battle-card" id="br-my-card"><div class="bc-label">You</div><div class="bc-emoji" id="br-my-emoji">🪨</div><div class="bc-name" id="br-my-name">Rock</div></div>
+      <div class="vs-badge">VS</div>
+      <div class="battle-card" id="br-op-card"><div class="bc-label">Opp</div><div class="bc-emoji" id="br-op-emoji">✂️</div><div class="bc-name" id="br-op-name">Scissors</div></div>
+    </div>
+    <div class="round-result-text" id="br-result-text">You Win!</div>
+    <div class="round-perk-msgs" id="br-perk-msgs"></div>
+    <div class="ticker-info" id="br-ticker">+2 cards drawn!</div>
+    <div class="round-scores" id="br-scores">Score: 1 – 0</div>
+  </div>
+</div>
+
+<!-- ══════════ GAME OVER ══════════ -->
+<div id="screen-gameover" class="screen">
+  <div class="content-wrap gameover-content">
+    <div class="gameover-emoji" id="go-emoji">🏆</div>
+    <h2 id="go-title">Victory!</h2>
+    <p id="go-subtitle">You dominated this match.</p>
+    <div class="go-scores">
+      <div class="go-score-item"><span id="go-my-score">0</span><span id="go-my-name">You</span></div>
+      <span class="go-sep">:</span>
+      <div class="go-score-item"><span id="go-opp-score">0</span><span>Opponent</span></div>
+    </div>
+    <div class="coins-earned-badge" id="go-coins">+50 🪙</div>
+    <button id="btn-double-reward" class="btn btn-secondary btn-full" style="margin-bottom:.5rem; border-color:var(--gold); color:var(--gold)">📺 Double Coins (Watch Ad)</button>
+    <button id="btn-play-again" class="btn btn-primary btn-full">⚔️ Play Again</button>
+    <button id="btn-go-menu" class="btn btn-ghost btn-full">Main Menu</button>
+  </div>
+</div>
+
+<!-- ══════════ TOURNAMENT ══════════ -->
+<div id="screen-tournament" class="screen">
+  <div class="nav-bar"><button class="btn-back" data-target="screen-menu">← Back</button><h2>Tournament</h2><div></div></div>
+  <div class="content-wrap">
+    <button id="btn-create-tourn" class="btn btn-primary btn-full">🏆 Create Tournament</button>
+    <div class="divider-or"><span>or</span></div>
+    <div class="join-row"><input id="tourn-code-input" type="text" maxlength="5" placeholder="T-Code" class="code-input" autocomplete="off" /><button id="btn-join-tourn" class="btn btn-secondary">Join</button></div>
+    <div class="divider-or"><span>public arenas</span></div>
+    <button id="btn-refresh-public" class="btn btn-ghost btn-full">🔄 Browse Public Tournaments</button>
+    <div id="public-tourn-list" class="public-tourn-list"></div>
+  </div>
+</div>
+
+<!-- Create tournament modal -->
+<div id="overlay-create-tourn" class="overlay hidden">
+  <div class="overlay-panel">
+    <h3>New Tournament</h3>
+    <label class="field-label">Name</label>
+    <input id="tourn-name-input" type="text" maxlength="30" placeholder="Grand Clash" />
+    <label class="field-label">Entry Fee (coins)</label>
+    <input id="tourn-fee-input" type="number" min="0" max="500" value="20" />
+    <label class="field-label">Players</label>
+    <div class="seg-control"><button class="seg-btn active" data-val="4" id="seg-4">4P</button><button class="seg-btn" data-val="8" id="seg-8">8P</button></div>
+    <label class="field-label" style="margin-top:.5rem"><input type="checkbox" id="tourn-public-check" /> Make Public</label>
+    <button id="btn-confirm-create-tourn" class="btn btn-primary btn-full" style="margin-top:1rem">Create →</button>
+    <button id="btn-cancel-create-tourn" class="btn btn-ghost btn-full">Cancel</button>
+  </div>
+</div>
+
+<!-- Tournament lobby -->
+<div id="screen-tourn-lobby" class="screen">
+  <div class="nav-bar"><button class="btn-back" data-target="screen-menu">← Cancel</button><h2 id="tourn-lobby-name">Tournament</h2><div></div></div>
+  <div class="content-wrap">
+    <div class="code-display" id="tourn-lobby-code">T----</div>
+    <button id="btn-copy-tourn-code" class="btn btn-ghost">📋 Copy Code</button>
+    <div class="prize-info"><span class="prize-label">Prize Pool</span><span class="prize-val" id="tourn-prize">0 🪙</span></div>
+    <div class="player-list" id="tourn-player-list"></div>
+    <button id="btn-start-tourn" class="btn btn-primary btn-full hidden">Start Tournament</button>
+    <div class="lobby-wait"><div class="spinner" id="tourn-spinner"></div><p id="tourn-lobby-status">Waiting for players…</p></div>
+  </div>
+</div>
+
+<!-- Tournament over overlay -->
+<div id="overlay-tourn-over" class="overlay hidden">
+  <div class="overlay-panel">
+    <div class="gameover-emoji" id="to-emoji">🏆</div>
+    <h2 id="to-title">Tournament Over!</h2>
+    <p id="to-champion">Champion: –</p>
+    <div class="coins-earned-badge" id="to-coins">+0 🪙</div>
+    <button id="btn-tourn-menu" class="btn btn-primary btn-full">Back to Menu</button>
+  </div>
+</div>
+
+<!-- ══════════ SHOP (Armory) ══════════ -->
+<div id="screen-shop" class="screen">
+  <div class="nav-bar"><button class="btn-back" data-target="screen-menu">← Back</button><h2>Armory</h2><div class="coins-pill small"><span class="coin-icon">🪙</span><span id="shop-coins">0</span></div></div>
+  <div class="shop-tabs">
+    <button class="tab-btn active" data-tab="passive-perks">Passive</button>
+    <button class="tab-btn" data-tab="active-perks">Active</button>
+    <button class="tab-btn" data-tab="skins">Skins</button>
+    <button class="tab-btn" data-tab="slots">Slots</button>
+    <button class="tab-btn" data-tab="avatars">Avatars</button>
+    <button class="tab-btn" data-tab="rewards">🪙 FREE</button>
+  </div>
+  <div class="shop-content" id="shop-content"></div>
+</div>
+
+<!-- ══════════ PROFILE ══════════ -->
+<div id="screen-profile" class="screen">
+  <div class="nav-bar"><button class="btn-back" data-target="screen-menu">← Back</button><h2>Profile</h2><div></div></div>
+  <div class="content-wrap">
+    <div class="profile-hero">
+      <div class="profile-avatar-big" id="prof-avatar-big">?</div>
+      <div class="profile-name-row">
+        <h3 id="prof-username">–</h3>
+        <button id="btn-edit-nick" class="btn-icon">✏️</button>
+      </div>
+      <span id="prof-tag" class="user-tag" style="opacity:0.6;margin-top:-0.5rem">#000000</span>
+      <div class="coins-pill"><span class="coin-icon">🪙</span><span id="prof-coins">0</span></div>
+    </div>
+    <div id="nick-edit-row" class="join-row" style="display:none; margin-bottom: 1rem;">
+      <input id="nick-input" type="text" maxlength="15" placeholder="New Nickname" />
+      <button id="btn-save-nick" class="btn btn-primary btn-sm">Save</button>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card"><span id="prof-wins">0</span><span>Wins</span></div>
+      <div class="stat-card"><span id="prof-losses">0</span><span>Losses</span></div>
+      <div class="stat-card" style="grid-column: span 2;"><span id="prof-games">0</span><span>Games Played</span></div>
+    </div>
+    <h4 class="section-title">Perk Slots: <span id="prof-slot-count">1</span> / 5</h4>
+    <div class="equipped-perks-list" id="prof-equipped-perks"></div>
+    <h4 class="section-title">Equipped Skin</h4>
+    <div class="skin-preview-row" id="prof-skin-preview" style="margin-bottom:1rem"></div>
+    <h4 class="section-title">Avatars</h4>
+    <div class="avatar-preview-row" id="prof-avatar-preview"></div>
+    <button id="btn-logout" class="btn btn-ghost btn-full" style="margin-top:2rem">Log Out</button>
+  </div>
+</div>
+
+<!-- ══════════ PEEK OVERLAY ══════════ -->
+<div id="overlay-peek" class="overlay hidden">
+  <div class="overlay-panel">
+    <h3>👁️ Peek — Opponent's Hand</h3>
+    <div class="peek-hand" id="peek-hand"></div>
+    <button id="btn-close-peek" class="btn btn-primary btn-full">Got it</button>
+  </div>
+</div>
+
+<!-- ══════════ EMOTE OVERLAY ══════════ -->
+<div id="overlay-emote" class="overlay hidden" style="background: rgba(0,0,0,0.4)">
+  <div class="overlay-panel" style="padding: 1rem; top: auto; bottom: 20%; transform: translate(-50%, 0);">
+    <div class="emote-grid" id="emote-grid">
+      <button class="emote-btn" data-emote="idle">Idle</button>
+      <button class="emote-btn" data-emote="walk">Walk</button>
+      <button class="emote-btn" data-emote="run">Run</button>
+      <button class="emote-btn" data-emote="jump_start">Jump</button>
+      <button class="emote-btn" data-emote="attack_1">Attack 1</button>
+      <button class="emote-btn" data-emote="attack_2">Attack 2</button>
+      <button class="emote-btn" data-emote="hurt">Hurt</button>
+      <button class="emote-btn" data-emote="death">Death</button>
+      <button class="emote-btn" data-emote="spin_transform">Spin</button>
+      <button class="emote-btn" data-emote="dissolve">Dissolve</button>
+    </div>
+    <button id="btn-close-emote" class="btn btn-ghost btn-full" style="margin-top:.5rem">Close</button>
+  </div>
+</div>
+
+<!-- ══════════ LEADERBOARD ══════════ -->
+<div id="screen-leaderboard" class="screen">
+  <div class="nav-bar"><button class="btn-back" data-target="screen-menu">← Back</button><h2>Leaderboard</h2><div></div></div>
+  <div class="lb-tabs">
+    <button class="lb-tab active" data-period="alltime">All Time</button>
+    <button class="lb-tab" data-period="monthly">Monthly</button>
+    <button class="lb-tab" data-period="daily">Daily</button>
+  </div>
+  <div class="lb-list" id="lb-list"></div>
+</div>
+
+<!-- ══════════ FRIENDS ══════════ -->
+<div id="screen-friends" class="screen">
+  <div class="nav-bar"><button class="btn-back" data-target="screen-menu">← Back</button><h2>Friends</h2><div></div></div>
+  <div class="content-wrap">
+    <div class="join-row">
+      <input id="friend-tag-input" type="text" maxlength="30" placeholder="e.g. Blade#123456" autocomplete="off" />
+      <button id="btn-add-friend-tag" class="btn btn-secondary btn-sm">Add by Tag</button>
+    </div>
+    <div id="friends-list" class="player-list"></div>
+    <p id="friends-empty" class="lobby-label" style="text-align:center">No friends yet — add some warriors by their Name#Tag!</p>
+  </div>
+</div>
+
+<!-- ══════════ GAME INVITE OVERLAY ══════════ -->
+<div id="overlay-invite" class="overlay hidden">
+  <div class="overlay-panel" style="text-align:center">
+    <div style="font-size:3rem">⚔️</div>
+    <h3>Challenge!</h3>
+    <p id="invite-from-text">Someone wants to battle you!</p>
+    <div style="display:flex;gap:.5rem;margin-top:1rem">
+      <button id="btn-accept-invite" class="btn btn-primary" style="flex:1">⚔️ Accept</button>
+      <button id="btn-decline-invite" class="btn btn-ghost" style="flex:1">✕ Decline</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MONETIZATION & OVERLAYS ══════════ -->
+<div id="modal-daily-reward" class="modal-overlay hidden">
+  <div class="modal-content">
+    <div class="reward-sparkle">✨</div>
+    <h2>Daily Reward!</h2>
+    <p>Welcome back, warrior! Collect your daily gift.</p>
+    <div class="reward-amount">🪙 100</div>
+    <button id="btn-claim-daily" class="btn btn-primary btn-full">Claim Coins</button>
+  </div>
+</div>
+
+<div id="overlay-ad" class="overlay-ad-sim hidden">
+  <div class="ad-sim-content">
+    <div class="ad-sim-header">
+      <span class="ad-tag">ADVERTISEMENT</span>
+      <span id="ad-timer">15s</span>
+    </div>
+    <div class="ad-sim-body">
+      <div class="ad-sim-logo">⚔️</div>
+      <div class="ad-sim-title">RPS CLASH PREMIUM</div>
+      <div class="ad-sim-sub">Upgrade your experience at rps-clash.com</div>
+    </div>
+    <div class="ad-sim-footer">
+      <button id="btn-ad-close" class="btn btn-ghost hidden">Close & Claim 🪙 100</button>
+      <p id="ad-wait-msg">Reward available in <span id="ad-timer-big">15</span> seconds...</p>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="game.js"></script>
 </body>
 </html>

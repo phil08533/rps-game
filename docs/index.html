@@ -11,6 +11,20 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Outfit:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- Google AdSense Readiness for rps-clash.com -->
+  <!-- Monetag Readiness -->
+  <!-- <script src="https://alwingulla.com/88/p.js" data-automated="true" defer></script> -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').then(reg => {
+          console.log('SW registered:', reg);
+        }).catch(err => {
+          console.log('SW failed:', err);
+        });
+      });
+    }
+  </script>
 </head>
 <body>
 
@@ -118,7 +132,10 @@
         <div class="arena-avatar" id="arena-my-avatar"></div>
         <div class="arena-name" id="arena-my-name">You</div>
       </div>
-      <div class="arena-vs">VS</div>
+      <div class="arena-vs">
+        <div>VS</div>
+        <button id="btn-forfeit" class="btn-forfeit" title="Forfeit Match">🏳️</button>
+      </div>
       <div class="arena-character arena-opp">
         <div class="arena-avatar" id="arena-opp-avatar"></div>
         <div class="arena-name" id="arena-opp-name">Opponent</div>
@@ -164,6 +181,7 @@
       <div class="go-score-item"><span id="go-opp-score">0</span><span>Opponent</span></div>
     </div>
     <div class="coins-earned-badge" id="go-coins">+50 🪙</div>
+    <button id="btn-double-reward" class="btn btn-secondary btn-full" style="margin-bottom:.5rem; border-color:var(--gold); color:var(--gold)">📺 Double Coins (Watch Ad)</button>
     <button id="btn-play-again" class="btn btn-primary btn-full">⚔️ Play Again</button>
     <button id="btn-go-menu" class="btn btn-ghost btn-full">Main Menu</button>
   </div>
@@ -231,6 +249,7 @@
     <button class="tab-btn" data-tab="skins">Skins</button>
     <button class="tab-btn" data-tab="slots">Slots</button>
     <button class="tab-btn" data-tab="avatars">Avatars</button>
+    <button class="tab-btn" data-tab="rewards">🪙 FREE</button>
   </div>
   <div class="shop-content" id="shop-content"></div>
 </div>
@@ -255,8 +274,7 @@
     <div class="stats-grid">
       <div class="stat-card"><span id="prof-wins">0</span><span>Wins</span></div>
       <div class="stat-card"><span id="prof-losses">0</span><span>Losses</span></div>
-      <div class="stat-card"><span id="prof-ties">0</span><span>Ties</span></div>
-      <div class="stat-card"><span id="prof-games">0</span><span>Games</span></div>
+      <div class="stat-card" style="grid-column: span 2;"><span id="prof-games">0</span><span>Games Played</span></div>
     </div>
     <h4 class="section-title">Perk Slots: <span id="prof-slot-count">1</span> / 5</h4>
     <div class="equipped-perks-list" id="prof-equipped-perks"></div>
@@ -329,6 +347,35 @@
     <div style="display:flex;gap:.5rem;margin-top:1rem">
       <button id="btn-accept-invite" class="btn btn-primary" style="flex:1">⚔️ Accept</button>
       <button id="btn-decline-invite" class="btn btn-ghost" style="flex:1">✕ Decline</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MONETIZATION & OVERLAYS ══════════ -->
+<div id="modal-daily-reward" class="modal-overlay hidden">
+  <div class="modal-content">
+    <div class="reward-sparkle">✨</div>
+    <h2>Daily Reward!</h2>
+    <p>Welcome back, warrior! Collect your daily gift.</p>
+    <div class="reward-amount">🪙 100</div>
+    <button id="btn-claim-daily" class="btn btn-primary btn-full">Claim Coins</button>
+  </div>
+</div>
+
+<div id="overlay-ad" class="overlay-ad-sim hidden">
+  <div class="ad-sim-content">
+    <div class="ad-sim-header">
+      <span class="ad-tag">ADVERTISEMENT</span>
+      <span id="ad-timer">15s</span>
+    </div>
+    <div class="ad-sim-body">
+      <div class="ad-sim-logo">⚔️</div>
+      <div class="ad-sim-title">RPS CLASH PREMIUM</div>
+      <div class="ad-sim-sub">Upgrade your experience at rps-clash.com</div>
+    </div>
+    <div class="ad-sim-footer">
+      <button id="btn-ad-close" class="btn btn-ghost hidden">Close & Claim 🪙 100</button>
+      <p id="ad-wait-msg">Reward available in <span id="ad-timer-big">15</span> seconds...</p>
     </div>
   </div>
 </div>
