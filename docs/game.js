@@ -1,6 +1,6 @@
 // ── Config ────────────────────────────────────────────────────
 const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  ? `http://${window.location.hostname}:3000` : window.location.origin;
+  ? `http://${window.location.hostname}:3000` : 'https://rps-game-production-e012.up.railway.app';
 const socket = io(BACKEND_URL, { autoConnect: true, reconnection: true, reconnectionAttempts: 5 });
 
 // ── State ─────────────────────────────────────────────────────
