@@ -140,7 +140,7 @@ input:focus{border-color:var(--primary)}
 .score-item span:first-child{font-size:1.8rem;font-weight:900;line-height:1;font-family:var(--font-display)}
 .score-label{font-size:.7rem;color:var(--muted)}
 .score-sep{font-size:1.3rem;font-weight:900;color:var(--muted)}
-.round-info{text-align:center;color:var(--muted);font-size:.75rem}
+.round-info{display:flex;align-items:center;justify-content:center;gap:.6rem;color:var(--muted);font-size:.75rem}
 
 /* ── Perk Bar ─────────────────────────────────────────────────── */
 .perk-bar{display:flex;gap:.5rem;padding:.4rem .75rem;overflow-x:auto;flex-shrink:0;min-height:0;background:rgba(0,0,0,.2);border-bottom:1px solid rgba(255,100,60,.1);scrollbar-width:none}
@@ -573,4 +573,256 @@ input:focus{border-color:var(--primary)}
 .ad-sim-footer { padding: 2rem 0; }
 #ad-timer-big { font-weight: 900; color: var(--accent); }
 #ad-wait-msg { opacity: 0.6; font-size: 0.9rem; }
+
+/* ══════════ DRAW DIAL ══════════ */
+.draw-dial-compact {
+  display: flex; align-items: center; gap: .3rem;
+  background: rgba(255,193,7,.1);
+  border: 1px solid rgba(255,193,7,.28);
+  border-radius: 6px;
+  padding: .15rem .45rem;
+}
+.draw-dial-compact.dial-pop {
+  animation: dialPop .45s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes dialPop {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.22); box-shadow: 0 0 14px rgba(255,193,7,.55); }
+  100% { transform: scale(1); box-shadow: none; }
+}
+.ddc-label {
+  font-size: .6rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .05em; font-weight: 700;
+}
+.ddc-window {
+  width: 20px; height: 26px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: rgba(0,0,0,.55);
+  border: 1px solid rgba(255,193,7,.22);
+  position: relative;
+}
+.ddc-strip {
+  position: absolute; top: 0; left: 0; right: 0;
+  display: flex; flex-direction: column;
+  will-change: transform;
+}
+.ddc-strip span {
+  height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display);
+  font-size: 1rem; font-weight: 900;
+  color: var(--accent);
+  flex-shrink: 0; line-height: 1;
+}
+
+/* ══════════ CARD DEAL ANIMATION ══════════ */
+@keyframes cardDeal {
+  from   { transform: translateY(90px) rotate(12deg) scale(.52); opacity: 0; }
+  65%    { transform: translateY(-6px)  rotate(-1deg)  scale(1.05); opacity: 1; }
+  to     { transform: translateY(0)    rotate(0deg)   scale(1);    opacity: 1; }
+}
+.game-card.dealing {
+  animation: cardDeal .44s cubic-bezier(.34,1.56,.64,1) both;
+}
+
+/* ══════════ GAME INTRO OVERLAY ══════════ */
+.game-intro-panel {
+  display: flex; align-items: center; justify-content: center;
+  gap: 1.5rem; width: 100%; max-width: 560px;
+  padding: 1rem;
+}
+.intro-player {
+  display: flex; flex-direction: column; align-items: center; gap: .55rem;
+  flex: 1; max-width: 160px;
+}
+.intro-player.intro-me  { animation: introSlideLeft  .55s cubic-bezier(.34,1.2,.64,1) both; }
+.intro-player.intro-opp { animation: introSlideRight .55s cubic-bezier(.34,1.2,.64,1) both; }
+@keyframes introSlideLeft  { from { transform: translateX(-80px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes introSlideRight { from { transform: translateX( 80px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+.intro-avatar-wrap {
+  width: 100px; height: 100px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,80,50,.07);
+  border: 2px solid rgba(255,100,60,.2);
+  border-radius: 16px;
+  overflow: visible;
+  position: relative;
+}
+.intro-avatar {
+  width: 64px !important; height: 64px !important;
+  transform: scale(2.2) !important; transform-origin: center;
+  image-rendering: pixelated;
+  animation: anim-idle .8s steps(4) infinite;
+}
+.intro-player.intro-opp .intro-avatar { transform: scale(2.2) scaleX(-1) !important; }
+
+.intro-name {
+  font-family: var(--font-display); font-size: 1rem; font-weight: 800;
+  color: var(--text); text-align: center;
+  text-shadow: 0 0 12px rgba(0,0,0,.8);
+  max-width: 140px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.intro-perks {
+  display: flex; flex-wrap: wrap; gap: .3rem;
+  justify-content: center; min-height: 28px;
+}
+.intro-perk-badge {
+  background: rgba(255,80,50,.12);
+  border: 1px solid rgba(255,100,60,.3);
+  border-radius: 6px; padding: .18rem .45rem;
+  font-size: .7rem; font-weight: 700; color: var(--text);
+  display: flex; align-items: center; gap: .25rem;
+}
+.intro-perk-badge.unknown {
+  color: var(--muted); border-style: dashed;
+  border-color: rgba(255,255,255,.15);
+}
+
+.intro-center {
+  display: flex; flex-direction: column; align-items: center; gap: .5rem;
+  animation: introPop .5s cubic-bezier(.34,1.56,.64,1) .2s both;
+}
+@keyframes introPop { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.intro-vs-text {
+  font-family: var(--font-display); font-size: 2.8rem; font-weight: 900;
+  color: var(--accent); font-style: italic;
+  text-shadow: 0 0 30px rgba(255,193,7,.6), 0 0 60px rgba(255,193,7,.3);
+  line-height: 1;
+}
+.intro-best-of {
+  font-size: .75rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .08em; font-weight: 700;
+}
+
+/* ══════════ MOBILE RESPONSIVE (≤ 480px) ══════════ */
+@media (max-width: 480px) {
+  :root { --card-w: 78px; --card-h: 112px; }
+
+  /* Game top – compact */
+  .game-top { padding: .4rem .75rem; gap: .2rem; }
+  .score-item span:first-child { font-size: 1.5rem; }
+  .opp-avatar { width: 28px; height: 28px; font-size: .7rem; }
+  .opp-details span:first-child { font-size: .82rem; }
+
+  /* Arena – scale down avatars to prevent overflow */
+  .table-area { min-height: 200px; }
+  .arena-stage { gap: 1.75rem; }
+  .arena-me .arena-avatar  { transform: scale(2.5) scaleX(1)  !important; }
+  .arena-opp .arena-avatar { transform: scale(2.5) scaleX(-1) !important; }
+  .arena-name { font-size: .85rem; }
+  .arena-vs { font-size: 1.8rem; gap: .25rem; }
+
+  /* Emote feed */
+  .emote-feed { width: 100px; }
+  .emote-bubble { font-size: .74rem; padding: .28rem .45rem; }
+
+  /* Hands */
+  .opp-hand-area { min-height: 70px; gap: .25rem; padding: .3rem .5rem; }
+  .opp-card { width: 44px; height: 62px; font-size: .95rem; }
+  .player-hand-area { min-height: 135px; gap: .4rem; padding: .45rem .5rem; }
+  .card-emoji { font-size: 2rem; }
+  .card-label { font-size: .65rem; }
+
+  /* Login */
+  .login-content { padding: 1.2rem 1rem; gap: 1.5rem; }
+  .logo-emoji { font-size: 3rem; }
+  .logo-text { font-size: 2.4rem; }
+  .logo-sub { font-size: .85rem; }
+
+  /* Menu */
+  .menu-hero h2 { font-size: 1.25rem; }
+  .hero-emoji { font-size: 2.5rem; }
+  .menu-card { padding: .85rem 1rem; }
+  .mc-icon { font-size: 1.6rem; }
+  .mc-title { font-size: .95rem; }
+  .mc-sub { font-size: .78rem; }
+
+  /* Overlays */
+  .overlay { padding: .75rem; }
+  .overlay-panel { padding: 1.2rem 1rem; gap: .6rem; }
+  .battle-card { width: 80px; padding: .65rem .45rem; }
+  .bc-emoji { font-size: 1.8rem; }
+  .round-result-text { font-size: 1.35rem; }
+
+  /* Dial – slightly smaller */
+  .ddc-window { width: 18px; height: 24px; }
+  .ddc-strip span { height: 24px; font-size: .9rem; }
+
+  /* Intro */
+  .game-intro-panel { gap: .85rem; }
+  .intro-avatar-wrap { width: 80px; height: 80px; }
+  .intro-avatar { transform: scale(1.8) !important; }
+  .intro-player.intro-opp .intro-avatar { transform: scale(1.8) scaleX(-1) !important; }
+  .intro-vs-text { font-size: 2.2rem; }
+  .intro-name { font-size: .9rem; }
+}
+
+/* ══════════ VERY SMALL SCREENS (≤ 360px) ══════════ */
+@media (max-width: 360px) {
+  :root { --card-w: 68px; --card-h: 98px; }
+  .arena-me .arena-avatar  { transform: scale(2) scaleX(1)  !important; }
+  .arena-opp .arena-avatar { transform: scale(2) scaleX(-1) !important; }
+  .arena-stage { gap: 1.25rem; }
+  .table-area { min-height: 175px; }
+  .card-emoji { font-size: 1.8rem; }
+  .player-hand-area { min-height: 120px; }
+  .game-intro-panel { flex-direction: column; gap: .5rem; }
+  .intro-center { flex-direction: row; gap: 1rem; }
+  .intro-vs-text { font-size: 1.8rem; }
+  .intro-player { max-width: 100%; flex-direction: row; gap: .75rem; }
+  .intro-avatar-wrap { width: 56px; height: 56px; flex-shrink: 0; }
+  .intro-avatar { transform: scale(1.4) !important; }
+  .intro-player.intro-opp .intro-avatar { transform: scale(1.4) scaleX(-1) !important; }
+}
+
+/* ══════════ TABLET / DESKTOP (≥ 768px) ══════════ */
+@media (min-width: 768px) {
+  :root { --card-w: 100px; --card-h: 142px; }
+
+  .content-wrap, .shop-content, .lb-list { max-width: 560px; }
+
+  .menu-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    max-width: 560px; gap: .85rem;
+  }
+  .menu-hero { grid-column: span 2; }
+
+  .table-area { min-height: 400px; }
+  .arena-stage { gap: 4rem; }
+  .arena-me .arena-avatar  { transform: scale(5) scaleX(1)  !important; }
+  .arena-opp .arena-avatar { transform: scale(5) scaleX(-1) !important; }
+  .arena-name { font-size: 1.3rem; }
+  .arena-vs { font-size: 3rem; }
+
+  .player-hand-area { min-height: 180px; gap: .65rem; padding: .75rem 1rem; }
+  .opp-hand-area { min-height: 115px; }
+  .opp-card { width: 64px; height: 90px; font-size: 1.4rem; }
+  .card-emoji { font-size: 2.5rem; }
+
+  .login-content { max-width: 440px; }
+  .logo-emoji { font-size: 5rem; }
+  .logo-text { font-size: 3.5rem; }
+
+  /* Bigger dial on desktop */
+  .ddc-window { width: 24px; height: 30px; }
+  .ddc-strip span { height: 30px; font-size: 1.2rem; }
+
+  /* Intro */
+  .game-intro-panel { gap: 2.5rem; }
+  .intro-avatar-wrap { width: 130px; height: 130px; }
+  .intro-avatar { transform: scale(3) !important; }
+  .intro-player.intro-opp .intro-avatar { transform: scale(3) scaleX(-1) !important; }
+  .intro-vs-text { font-size: 4rem; }
+  .intro-name { font-size: 1.2rem; }
+}
+
+/* ══════════ LARGE DESKTOP (≥ 1024px) ══════════ */
+@media (min-width: 1024px) {
+  .table-area { min-height: 460px; }
+  .arena-vs { font-size: 3.5rem; }
+  .score-item span:first-child { font-size: 2.2rem; }
+}
 

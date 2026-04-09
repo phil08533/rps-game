@@ -128,7 +128,18 @@
       <div class="score-sep">:</div>
       <div class="score-item"><span id="opp-score-num">0</span><span class="score-label">Opp</span></div>
     </div>
-    <div class="round-info"><span id="round-label">Round 1 / 7</span></div>
+    <div class="round-info">
+      <span id="round-label">Round 1 / 7</span>
+      <div class="draw-dial-compact" id="draw-dial-compact" style="display:none">
+        <span class="ddc-label">Draw</span>
+        <div class="ddc-window">
+          <div class="ddc-strip" id="ddc-strip">
+            <span>0</span><span>1</span><span>2</span><span>3</span>
+            <span>4</span><span>5</span><span>6</span><span>7</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="table-area" id="table-area">
@@ -158,6 +169,30 @@
   <div class="opp-hand-area" id="opp-hand-area"></div>
   <div class="game-status" id="game-status">Tap a card to play</div>
   <div class="player-hand-area" id="player-hand-area"></div>
+</div>
+
+<!-- ══════════ GAME INTRO OVERLAY ══════════ -->
+<div id="overlay-game-intro" class="overlay hidden" style="background:rgba(0,0,0,0.92);backdrop-filter:blur(10px)">
+  <div class="game-intro-panel">
+    <div class="intro-player intro-me">
+      <div class="intro-avatar-wrap">
+        <div class="intro-avatar" id="intro-my-avatar"></div>
+      </div>
+      <div class="intro-name" id="intro-my-name">You</div>
+      <div class="intro-perks" id="intro-my-perks"></div>
+    </div>
+    <div class="intro-center">
+      <div class="intro-vs-text">VS</div>
+      <div class="intro-best-of" id="intro-best-of">Best of 7</div>
+    </div>
+    <div class="intro-player intro-opp">
+      <div class="intro-avatar-wrap">
+        <div class="intro-avatar" id="intro-opp-avatar"></div>
+      </div>
+      <div class="intro-name" id="intro-opp-name">Opponent</div>
+      <div class="intro-perks" id="intro-opp-perks"></div>
+    </div>
+  </div>
 </div>
 
 <!-- ══════════ ROUND RESULT OVERLAY ══════════ -->
