@@ -33,7 +33,7 @@ function setAvatar(elId, avatarId, nameFallback) {
   if (avatarId && avatarId.startsWith('Char')) {
     el.innerHTML = '';
     el.className = 'graphic-avatar';
-    el.style.backgroundImage = `url("avatars/${avatarId}/Character 1.png")`;
+    el.style.backgroundImage = `url("avatars/${avatarId}/sprite.png")`;
   } else {
     el.className = 'f-avatar';
     el.style.backgroundImage = 'none';
@@ -225,7 +225,7 @@ function renderShop() {
       const equipped = p.equippedAvatar === avatarId;
       const cost = sh.avatarCosts[avatarId];
       const el = document.createElement('div'); el.className='shop-item';
-      el.innerHTML=`<div class="si-icon"><div class="avatar-display" style="background-image:url('avatars/${avatarId}/Character 1.png');transform:scale(0.8)"></div></div><div class="si-info"><div class="si-name">Gladiator ${i}</div></div><div class="si-action">${
+      el.innerHTML=`<div class="si-icon"><div class="avatar-display" style="background-image:url('avatars/${avatarId}/sprite.png');transform:scale(0.8)"></div></div><div class="si-info"><div class="si-name">Gladiator ${i}</div></div><div class="si-action">${
         equipped?'<span class="badge-equipped">Equipped</span>'
         :owned?`<button class="btn-buy" data-id="${avatarId}" data-type="equip-avatar">Equip</button>`
         :`<button class="btn-buy" data-id="${avatarId}" data-type="buy-avatar" ${p.coins<cost?'disabled':''}>${cost} 🪙</button>`
@@ -267,8 +267,8 @@ function renderProfile() {
 
   const ar=$('prof-avatar-preview'); ar.innerHTML='';
   ['Char 1','Char 2','Char 3','Char 4','Char 5'].forEach(vid=>{
-    const d=document.createElement('div'); d.className='avatar-thumb ' + (p.equippedAvatar===vid?'owned':'owned');
-    d.style.backgroundImage=`url("avatars/${vid}/Character 1.png")`;
+    const d=document.createElement('div'); d.className='avatar-thumb ' + (p.equippedAvatar===vid?'owned':'locked');
+    d.style.backgroundImage=`url("avatars/${vid}/sprite.png")`;
     if(p.equippedAvatar===vid) d.style.borderColor='var(--accent)';
     d.onclick = () => socket.emit('equip_avatar',{avatarId:vid});
     ar.appendChild(d);
@@ -357,6 +357,7 @@ socket.on('game_start', d => {
   S.activePerksRemaining=d.activePerksRemaining||[]; S.searching=false;
   // Reset matchmaking UI
   $('btn-find-match').classList.remove('hidden');
+  if ($('btn-play-bot')) $('btn-play-bot').classList.remove('hidden');
   $('matchmaking-status').classList.add('hidden');
   hideOv('overlay-invite'); hideOv('overlay-round'); show('screen-game');
   renderHand(); renderOpp(d.opponentCardCount); updRound(); renderPerkBar();
@@ -453,8 +454,19 @@ $('btn-leaderboard').addEventListener('click', () => { socket.emit('get_leaderbo
 $('btn-friends').addEventListener('click', () => { socket.emit('get_friends'); show('screen-friends'); });
 
 $('btn-create').addEventListener('click', () => socket.emit('create_room'));
-$('btn-find-match').addEventListener('click', () => { socket.emit('find_match'); });
-$('btn-cancel-match').addEventListener('click', () => { socket.emit('cancel_match'); });
+$('btn-find-match').addEventListener('click', () => { 
+  $('btn-find-match').classList.add('hidden');
+  if ($('btn-play-bot')) $('btn-play-bot').classList.add('hidden');
+  $('matchmaking-status').classList.remove('hidden');
+  socket.emit('find_match'); 
+});
+$('btn-cancel-match').addEventListener('click', () => { 
+  $('matchmaking-status').classList.add('hidden');
+  if ($('btn-play-bot')) $('btn-play-bot').classList.remove('hidden');
+  $('btn-find-match').classList.remove('hidden');
+  socket.emit('cancel_match'); 
+});
+if ($('btn-play-bot')) $('btn-play-bot').addEventListener('click', () => socket.emit('play_vs_bot'));
 $('btn-join').addEventListener('click', () => { const c=$('join-code-input').value.trim().toUpperCase(); if(c.length!==4) return toast('Enter 4-letter code'); socket.emit('join_room',{code:c}); });
 $('join-code-input').addEventListener('keydown', e => { if(e.key==='Enter') $('btn-join').click(); });
 $('btn-copy-code').addEventListener('click', () => { navigator.clipboard.writeText(S.roomCode||$('lobby-code').textContent).then(()=>toast('📋 Copied!')).catch(()=>toast($('lobby-code').textContent)); });

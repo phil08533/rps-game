@@ -184,8 +184,11 @@ function awardCoins(username, base, isLoss) {
   return amount;
 }
 
+const AVATAR_COSTS = {};
+for (let i = 6; i <= 18; i++) AVATAR_COSTS[`Char ${i}`] = 500 + (Math.floor(i / 3) * 200);
+
 function getShopData() {
-  return { skins: SKINS, perks: PERKS, slotCosts: SLOT_COSTS };
+  return { skins: SKINS, perks: PERKS, slotCosts: SLOT_COSTS, avatarCosts: AVATAR_COSTS };
 }
 
 // ── Room ──────────────────────────────────────────────────────
@@ -430,10 +433,13 @@ function finishGame(room, draw1, draw2, reason, perkMessages, p1Phantom, p2Phant
     const myDraw = idx === 0 ? (draw1||0) : (draw2||0);
     const isWin = winner === p.username, isTie = winner === null;
     const isLoss = !isWin && !isTie;
-    const base  = reason === 'disconnect' ? 15 : isWin ? 25 : isTie ? 10 : 5;
+    let base  = reason === 'disconnect' ? 15 : isWin ? 25 : isTie ? 10 : 5;
+    if (room.isBot) base = isWin ? 10 : 0; // Bot matches reward less
     const coinsEarned = awardCoins(p.username, base, isLoss);
     const pd = getPlayer(p.username);
-    if (isWin) { pd.wins++; trackWin(p.username); } else if (isLoss) pd.losses++; else pd.ties++;
+    if (p.socketId !== 'BOT') {
+      if (isWin) { pd.wins++; trackWin(p.username); } else if (isLoss) pd.losses++; else pd.ties++;
+    }
     pd.gamesPlayed++;
     const myPerks = (perkMessages||[]).filter(m => m.player === idx+1).map(m => m.msg);
     io.to(p.socketId).emit('game_over', {
@@ -544,12 +550,35 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ── Quick Play ──
+  // ── Quick Play / Bot ──
   socket.on('create_room', () => {
     if (!socket.username) return socket.emit('error', { message: 'Not registered' });
     const room = makeRoom(socket.id, socket.username);
     socket.join(room.code); socket.currentRoom = room.code;
     socket.emit('room_created', { code: room.code });
+  });
+
+  socket.on('play_vs_bot', () => {
+    if (!socket.username) return socket.emit('error', { message: 'Not registered' });
+    const room = makeRoom(socket.id, socket.username);
+    room.isBot = true;
+    room.players.push({
+      socketId: 'BOT', username: 'Gladiator Bot', avatar: `Char ${Math.floor(Math.random() * 18) + 1}`,
+      hand: dealHand('BOT'), score: 0,
+      playedCard: null, playedIndex: -1,
+      activePerkThisRound: null, activePerksUsedThisGame: [], winStreak: 0,
+    });
+    room.state = 'playing';
+    socket.join(room.code); socket.currentRoom = room.code;
+    
+    // Start game right away
+    io.to(socket.id).emit('game_start', {
+      room: room.code, myIndex: 0, myHand: [...room.players[0].hand],
+      opponentName: room.players[1].username, opponentCardCount: room.players[1].hand.length,
+      opponentAvatar: room.players[1].avatar,
+      round: 1, maxRounds: 7, isTournament: false,
+      activePerksRemaining: getActivePerksRemaining(room.players[0]),
+    });
   });
 
   // ── Matchmaking ──
@@ -715,6 +744,14 @@ io.on('connection', (socket) => {
       return;
     }
     io.to(opp.socketId).emit('opponent_played');
+
+    // BOT LOGIC
+    if (room.isBot && opp.socketId === 'BOT' && opp.playedCard === null) {
+      if (opp.hand.length === 0) opp.hand = dealHand('BOT');
+      const randIdx = Math.floor(Math.random() * opp.hand.length);
+      opp.playedIndex = randIdx;
+      opp.playedCard = opp.hand.splice(randIdx, 1)[0];
+    }
 
     const p1Done = room.players[0].playedCard !== null || room.players[0].hand.length === 0;
     const p2Done = room.players[1].playedCard !== null || room.players[1].hand.length === 0;
