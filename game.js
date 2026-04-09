@@ -236,6 +236,11 @@ function showGO(d) {
   $('go-my-score').textContent=d.myScore; $('go-opp-score').textContent=d.opponentScore;
   $('go-my-name').textContent=d.playerData?.username||'You';
   $('go-coins').textContent=`+${d.coinsEarned} 🪙`;
+  
+  // Re-show double reward button if coins were earned
+  const dbtn = $('btn-double-reward');
+  if (dbtn) dbtn.style.display = d.coinsEarned > 0 ? 'block' : 'none';
+
   if(d.playerData){S.playerData=d.playerData;updMenu();}
   show('screen-gameover');
 }
@@ -679,8 +684,8 @@ function showDailyRewardPopup() {
 }
 
 function showAd(type = 'fixed') {
-  // If Monetag is implemented, we would trigger their tag here.
-  // For now, we use a premium simulation to ensure the reward flow is solid.
+  // Open the Monetag Direct Link in a new tab
+  window.open('https://omg10.com/4/10852230', '_blank');
   
   showOv('overlay-ad');
   let time = 15;
