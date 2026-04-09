@@ -50,7 +50,7 @@
     <div class="card-panel login-panel">
       <!-- Google Auth -->
       <div id="g_id_onload"
-         data-client_id="587233718402-1vee2on6jjpndl4mh7t6i2dgueg105tn.apps.googleusercontent.com"
+         data-client_id="1040686889031-eooksadk3knuc5kq5stirtutemo58j6l.apps.googleusercontent.com"
          data-context="signin"
          data-ux_mode="popup"
          data-callback="handleGoogleLogin"
@@ -424,23 +424,6 @@
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script src="game.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-<script>
-  google.accounts.id.initialize({
-    client_id: "1040686889031-eooksadk3knuc5kq5stirtutemo58j6l.apps.googleusercontent.com",
-    callback: handleCredentialResponse
-  });
-  function handleCredentialResponse(response) {
-  console.log("Google Credential Response:", response);
-
-  // Example decode:
-  const data = jwt_decode(response.credential);
-  console.log("User:", data);
-
-  // TODO: send token to your server or store user info
-}
-
-</script>
-<script src="https://cdn.jsdelivr.net/npm/jwt-decode@3.1.2/build/jwt-decode.min.js"></script>
 
 </body>
 </html>
