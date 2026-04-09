@@ -15,6 +15,12 @@
   <!-- Monetag Readiness -->
   <!-- <script src="https://alwingulla.com/88/p.js" data-automated="true" defer></script> -->
   <script>
+    // Force HTTPS for Google Login & Monetag security
+    if (location.protocol === 'http:' && location.hostname !== 'localhost') {
+      location.replace(`https://${location.hostname}${location.port ? ':' + location.port : ''}${location.pathname}${location.search}${location.hash}`);
+    }
+  </script>
+  <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js').then(reg => {
