@@ -58,19 +58,140 @@ input:focus{border-color:var(--primary)}
 
 /* ── Login ─────────────────────────────────────────────────────── */
 #screen-login{justify-content:center;align-items:center;overflow:hidden}
-.global-fire-bg {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background: radial-gradient(ellipse at 50% 40%, rgba(230,59,26,0.35) 0%, transparent 70%),
-              radial-gradient(ellipse at 80% 80%, rgba(255,193,7,0.12) 0%, transparent 60%);
-  animation: bgPulse 4s ease-in-out infinite alternate;
-  pointer-events: none;
-}
-@keyframes bgPulse{from{opacity:.6}to{opacity:1}}
 
-/* Fire particles */
-.fire-particles{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+/* ══════════════════════════════════════════════════════════════
+   MOUNTAIN PARALLAX BACKGROUND  (all screens except game)
+   ══════════════════════════════════════════════════════════════ */
+.mountain-bg {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
+  filter: sepia(0.18) saturate(0.72) brightness(0.82);
+}
+/* Hide mountain when game screen is active */
+body:has(#screen-game.active) .mountain-bg { display: none; }
+
+.mb-layer {
+  position: absolute; inset: 0;
+  background-repeat: repeat-x;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Layer order (painted front-to-back via z-index so CSS stacks correctly) */
+.mb-sky {
+  background-image: url('images/bg-mountain/sky.png');
+  background-size: auto 100%; background-position: 0 top;
+  animation: mbSky 500s linear infinite;
+}
+.mb-far-mountains {
+  background-image: url('images/bg-mountain/far-mountains.png');
+  background-size: auto 52%; background-position: 0 100%;
+  animation: mbFarMtn 300s linear infinite;
+}
+.mb-far-clouds {
+  background-image: url('images/bg-mountain/far-clouds.png');
+  background-size: auto 38%; background-position: 0 12%;
+  animation: mbFarClouds 260s linear infinite;
+}
+.mb-mountains {
+  background-image: url('images/bg-mountain/mountains.png');
+  background-size: auto 68%; background-position: 0 100%;
+  animation: mbMtn 180s linear infinite;
+}
+.mb-near-clouds {
+  background-image: url('images/bg-mountain/near-clouds.png');
+  background-size: auto 42%; background-position: 0 8%;
+  animation: mbNearClouds 130s linear infinite;
+}
+.mb-trees {
+  background-image: url('images/bg-mountain/trees.png');
+  background-size: auto 38%; background-position: 0 100%;
+  animation: mbTrees 220s linear infinite;
+}
+
+@keyframes mbSky       { from{background-position:0 top}       to{background-position:-12000px top} }
+@keyframes mbFarMtn    { from{background-position:0 100%}      to{background-position:-6000px 100%} }
+@keyframes mbFarClouds { from{background-position:0 12%}       to{background-position:-5000px 12%} }
+@keyframes mbMtn       { from{background-position:0 100%}      to{background-position:-8000px 100%} }
+@keyframes mbNearClouds{ from{background-position:0 8%}        to{background-position:-4000px 8%} }
+@keyframes mbTrees     { from{background-position:0 100%}      to{background-position:-7000px 100%} }
+
+/* VHS haze overlay — drifting fog patches, no scanlines */
+.mb-vhs { position: absolute; inset: 0; pointer-events: none; }
+.vhs-haze {
+  position: absolute; border-radius: 50%;
+  filter: blur(28px); pointer-events: none;
+  animation: vhsDrift 18s ease-in-out infinite alternate;
+}
+.vh1 {
+  width: 45%; height: 35%; top: 18%; left: 4%;
+  background: radial-gradient(ellipse at center, rgba(190,130,100,0.13) 0%, transparent 70%);
+  animation-duration: 17s;
+}
+.vh2 {
+  width: 38%; height: 28%; top: 8%; right: 8%;
+  background: radial-gradient(ellipse at center, rgba(80,100,170,0.09) 0%, transparent 70%);
+  animation-duration: 23s; animation-direction: alternate-reverse;
+}
+.vh3 {
+  width: 55%; height: 40%; bottom: 12%; left: 22%;
+  background: radial-gradient(ellipse at center, rgba(160,90,120,0.10) 0%, transparent 70%);
+  animation-duration: 29s;
+}
+@keyframes vhsDrift {
+  from { transform: translate(0, 0)    scale(1);    opacity: 0.55; }
+  to   { transform: translate(24px,-18px) scale(1.18); opacity: 1; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   WASTELAND PARALLAX BACKGROUND  (battle arena only)
+   ══════════════════════════════════════════════════════════════ */
+.wasteland-bg {
+  display: none;
+  position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
+}
+body:has(#screen-game.active) .wasteland-bg { display: block; }
+
+.wb-layer {
+  position: absolute; inset: 0;
+  background-repeat: repeat-x;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.wb-back {
+  background-image: url('images/bg-wasteland/back.png');
+  background-size: auto 100%; background-position: 0 top;
+  animation: wbBack 400s linear infinite;
+}
+.wb-middle {
+  background-image: url('images/bg-wasteland/middle.png');
+  background-size: auto 52%; background-position: 0 100%;
+  animation: wbMiddle 200s linear infinite;
+}
+.wb-near {
+  background-image: url('images/bg-wasteland/near.png');
+  background-size: auto 62%; background-position: 0 100%;
+  animation: wbNear 150s linear infinite;
+}
+@keyframes wbBack   { from{background-position:0 top}  to{background-position:-8000px top} }
+@keyframes wbMiddle { from{background-position:0 100%} to{background-position:-9000px 100%} }
+@keyframes wbNear   { from{background-position:0 100%} to{background-position:-10000px 100%} }
+
+/* ══════════════════════════════════════════════════════════════
+   ARENA FIRE FX — only on game screen, hidden everywhere else
+   ══════════════════════════════════════════════════════════════ */
+.global-fire-bg {
+  display: none;
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 80%, rgba(180,59,10,0.28) 0%, transparent 65%),
+              radial-gradient(ellipse at 80% 90%, rgba(255,193,7,0.08) 0%, transparent 55%);
+  animation: bgPulse 4s ease-in-out infinite alternate;
+}
+body:has(#screen-game.active) .global-fire-bg { display: block; }
+@keyframes bgPulse{from{opacity:.5}to{opacity:1}}
+
+/* Fire particles — arena only */
+.fire-particles{display:none;position:fixed;inset:0;z-index:1;overflow:hidden;pointer-events:none}
+body:has(#screen-game.active) .fire-particles{display:block}
 .fire-particles span{position:absolute;bottom:-10px;width:8px;height:8px;border-radius:50%;animation:rise 3s ease-in infinite;opacity:0}
 .fire-particles span:nth-child(1){left:10%;animation-delay:0s;background:#ff4500}
 .fire-particles span:nth-child(2){left:25%;animation-delay:.4s;background:#ff6b3d;width:6px;height:6px}
@@ -152,13 +273,12 @@ input:focus{border-color:var(--primary)}
 .perk-btn.active-now{border-color:var(--accent);box-shadow:0 0 12px rgba(255,193,7,.4);background:rgba(255,193,7,.15)}
 .perk-btn .perk-icon{font-size:1rem}
 
-/* ── Table (center play area) ─────────────────────────────────── */
 /* ── Table (center play area / THE RING) ───────────────────────── */
 .table-area {
   flex: 1; display: flex; align-items: center; justify-content: center;
   position: relative; min-height: 350px; overflow: visible;
   perspective: 1200px;
-  background: radial-gradient(circle at center, rgba(230,59,26,0.15) 0%, transparent 70%);
+  background: none;
 }
 
 /* Arena Stage (The Face-off) */

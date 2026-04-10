@@ -38,7 +38,30 @@
 </head>
 <body>
 
-<div class="global-fire-bg"></div>
+<!-- ══════════ MOUNTAIN PARALLAX BG (login / menu / all non-game screens) ══════════ -->
+<div class="mountain-bg" id="mountain-bg" aria-hidden="true">
+  <div class="mb-layer mb-sky"></div>
+  <div class="mb-layer mb-far-mountains"></div>
+  <div class="mb-layer mb-far-clouds"></div>
+  <div class="mb-layer mb-mountains"></div>
+  <div class="mb-layer mb-near-clouds"></div>
+  <div class="mb-layer mb-trees"></div>
+  <div class="mb-vhs">
+    <div class="vhs-haze vh1"></div>
+    <div class="vhs-haze vh2"></div>
+    <div class="vhs-haze vh3"></div>
+  </div>
+</div>
+
+<!-- ══════════ WASTELAND PARALLAX BG (battle arena only) ══════════ -->
+<div class="wasteland-bg" id="wasteland-bg" aria-hidden="true">
+  <div class="wb-layer wb-back"></div>
+  <div class="wb-layer wb-middle"></div>
+  <div class="wb-layer wb-near"></div>
+</div>
+
+<!-- ══════════ ARENA FIRE FX (battle arena only) ══════════ -->
+<div class="global-fire-bg" aria-hidden="true"></div>
 <div class="fire-particles" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
 
 <div id="toast" class="toast"></div>
