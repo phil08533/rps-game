@@ -90,37 +90,37 @@ body:has(#screen-game.active) .mountain-bg { display: none; }
 .mb-sky {
   background-image: url('images/bg-mountain/sky.png');
   background-size: auto 100%; background-position: 0 20%;
-  animation: mbSky 500s linear infinite;
+  animation: mbSky 550s linear infinite;
 }
 /* Big red mountains — tallest ground layer, furthest back */
 .mb-mountains {
   background-image: url('images/bg-mountain/mountains.png');
   background-size: auto 55%; background-position: 0 55%;
-  animation: mbMtn 180s linear infinite;
+  animation: mbMtn 540s linear infinite;
 }
 /* Wispy far clouds — shifted down 50% */
 .mb-far-clouds {
   background-image: url('images/bg-mountain/far-clouds.png');
   background-size: auto 50%; background-position: 0 40%;
-  animation: mbFarClouds 260s linear infinite;
+  animation: mbFarClouds 530s linear infinite;
 }
 /* Orange near clouds — hover over the mountain ridgeline */
 .mb-near-clouds {
   background-image: url('images/bg-mountain/near-clouds.png');
   background-size: auto 90%; background-position: 0 70%;
-  animation: mbNearClouds 130s linear infinite;
+  animation: mbNearClouds 520s linear infinite;
 }
 /* Spikey mountains — right behind trees (80% rule: top at 56%) */
 .mb-far-mountains {
   background-image: url('images/bg-mountain/far-mountains.png');
   background-size: auto 80%; background-position: 0 100%;
-  animation: mbFarMtn 220s linear infinite;
+  animation: mbFarMtn 510s linear infinite;
 }
 /* Trees — frontmost ground layer (80% rule: top at 65%) */
 .mb-trees {
   background-image: url('images/bg-mountain/trees.png');
   background-size: auto 70%; background-position: 0 100%;
-  animation: mbTrees 280s linear infinite;
+  animation: mbTrees 500s linear infinite;
 }
 
 @keyframes mbSky       { from{background-position:0 0%}   to{background-position:-12000px 0%} }
