@@ -507,6 +507,7 @@ socket.on('registered', ({playerData,shop,isRejoin}) => {
   }
 });
 socket.on('error', ({message}) => toast('⚠️ '+message));
+socket.on('online_count', ({count}) => { const el=$('online-count'); if(el) el.textContent=count; });
 
 socket.on('room_created', ({code, inviteSent}) => {
   S.roomCode=code; $('lobby-code').textContent=code;

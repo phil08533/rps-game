@@ -680,6 +680,7 @@ function autoPlayCard(room, player) {
 
 // ── Socket ────────────────────────────────────────────────────
 io.on('connection', (socket) => {
+  io.emit('online_count', { count: io.sockets.sockets.size });
 
   socket.on('register', ({ username, rejoinRoom }) => {
     if (!username || username.length < 2 || username.length > 20) return socket.emit('error', { message: 'Username must be 2–20 characters' });
@@ -1319,6 +1320,7 @@ io.on('connection', (socket) => {
         }
       }
     }
+    io.emit('online_count', { count: io.sockets.sockets.size });
   });
 });
 
