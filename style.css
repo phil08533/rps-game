@@ -89,7 +89,7 @@ body:has(#screen-game.active) .mountain-bg { display: none; }
 */
 .mb-sky {
   background-image: url('images/bg-mountain/sky.png');
-  background-size: auto 100%; background-position: 0 0%;
+  background-size: auto 150%; background-position: 0 0%;
   animation: mbSky 500s linear infinite;
 }
 /* Big red mountains — tallest ground layer, furthest back */
@@ -98,10 +98,10 @@ body:has(#screen-game.active) .mountain-bg { display: none; }
   background-size: auto 55%; background-position: 0 100%;
   animation: mbMtn 180s linear infinite;
 }
-/* Wispy far clouds — float in upper sky above the mountains */
+/* Wispy far clouds — shifted down 50% */
 .mb-far-clouds {
   background-image: url('images/bg-mountain/far-clouds.png');
-  background-size: auto 26%; background-position: 0 12%;
+  background-size: auto 26%; background-position: 0 62%;
   animation: mbFarClouds 260s linear infinite;
 }
 /* Orange near clouds — hover over the mountain ridgeline */
@@ -125,7 +125,7 @@ body:has(#screen-game.active) .mountain-bg { display: none; }
 
 @keyframes mbSky       { from{background-position:0 0%}   to{background-position:-12000px 0%} }
 @keyframes mbMtn       { from{background-position:0 100%} to{background-position:-8000px 100%} }
-@keyframes mbFarClouds { from{background-position:0 12%}  to{background-position:-5000px 12%} }
+@keyframes mbFarClouds { from{background-position:0 62%}  to{background-position:-5000px 62%} }
 @keyframes mbNearClouds{ from{background-position:0 20%}  to{background-position:-4000px 20%} }
 @keyframes mbFarMtn    { from{background-position:0 100%} to{background-position:-6000px 100%} }
 @keyframes mbTrees     { from{background-position:0 100%} to{background-position:-7000px 100%} }
