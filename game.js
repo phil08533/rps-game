@@ -23,6 +23,16 @@ const SM = {
   shadow:{ic:'🖤',cl:'skin-shadow'},rainbow:{ic:'🌈',cl:'skin-rainbow'},
 };
 
+// ── Avatar names ─────────────────────────────────────────────
+const AVATAR_NAMES = {
+  'Char 1': 'Rex', 'Char 2': 'Lyra', 'Char 3': 'Brom',
+  'Char 4': 'Sable', 'Char 5': 'Kira', 'Char 6': 'Drak',
+  'Char 7': 'Vex', 'Char 8': 'Mira', 'Char 9': 'Thorne',
+  'Char 10': 'Zara', 'Char 11': 'Gideon', 'Char 12': 'Nyx',
+  'Char 13': 'Blaze', 'Char 14': 'Storm', 'Char 15': 'Vega',
+  'Char 16': 'Onyx', 'Char 17': 'Seraph', 'Char 18': 'Phantom',
+};
+
 // ── Helpers ───────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
 function show(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); $(id).classList.add('active'); }
@@ -376,7 +386,7 @@ function renderShop() {
       const equipped = p.equippedAvatar === avatarId;
       const cost = sh.avatarCosts[avatarId];
       const el = document.createElement('div'); el.className='shop-item';
-      el.innerHTML=`<div class="si-icon"><div class="avatar-display" style="background-image:url('avatars/${avatarId}/sprite.png');transform:scale(0.8)"></div></div><div class="si-info"><div class="si-name">Gladiator ${i}</div></div><div class="si-action">${
+      el.innerHTML=`<div class="si-icon"><div class="avatar-display" style="background-image:url('avatars/${avatarId}/sprite.png');transform:scale(0.8)"></div></div><div class="si-info"><div class="si-name">${AVATAR_NAMES[avatarId]||avatarId}</div></div><div class="si-action">${
         equipped?'<span class="badge-equipped">Equipped</span>'
         :owned?`<button class="btn-buy" data-id="${avatarId}" data-type="equip-avatar">Equip</button>`
         :`<button class="btn-buy" data-id="${avatarId}" data-type="buy-avatar" ${p.coins<cost?'disabled':''}>${cost} 🪙</button>`
@@ -432,6 +442,7 @@ function renderProfile() {
     const d=document.createElement('div'); d.className='avatar-thumb ' + (p.equippedAvatar===vid?'owned':'locked');
     d.style.backgroundImage=`url("avatars/${vid}/sprite.png")`;
     if(p.equippedAvatar===vid) d.style.borderColor='var(--accent)';
+    d.title = AVATAR_NAMES[vid]||vid;
     d.onclick = () => socket.emit('equip_avatar',{avatarId:vid});
     ar.appendChild(d);
   });
@@ -699,6 +710,7 @@ socket.on('play_emote', ({username, emoteName}) => {
 socket.on('tournament_created', ({tournament,playerData}) => { S.playerData=playerData; S.tournamentCode=tournament.code; updMenu(); renderTL(tournament); show('screen-tourn-lobby'); toast('Tournament created!'); });
 socket.on('joined_tournament', ({tournament,playerData}) => { S.playerData=playerData; S.tournamentCode=tournament.code; updMenu(); renderTL(tournament); show('screen-tourn-lobby'); });
 socket.on('tournament_update', ({tournament}) => renderTL(tournament));
+socket.on('left_tournament', ({playerData}) => { S.playerData=playerData; updMenu(); });
 socket.on('tournament_started', () => { $('tourn-lobby-status').textContent='⚡ Preparing your match…'; $('btn-start-tourn').classList.add('hidden'); });
 socket.on('tournament_round_start', ({round}) => toast(`🏆 Round ${round}!`));
 socket.on('tournament_over', ({champion,tournamentCoinsEarned,placement}) => {
@@ -843,7 +855,13 @@ $('btn-login').addEventListener('click', () => {
   socket.emit('register', { username: n });
 });
 $('username-input').addEventListener('keydown', e => { if(e.key==='Enter') $('btn-login').click(); });
-document.querySelectorAll('.btn-back').forEach(b => b.addEventListener('click', () => { if(b.dataset.target) show(b.dataset.target); }));
+document.querySelectorAll('.btn-back').forEach(b => b.addEventListener('click', () => {
+  if (b.closest('#screen-tourn-lobby') && S.tournamentCode) {
+    socket.emit('leave_tournament', { code: S.tournamentCode });
+    S.tournamentCode = null;
+  }
+  if(b.dataset.target) show(b.dataset.target);
+}));
 
 $('btn-quickplay').addEventListener('click', () => show('screen-quickplay'));
 $('btn-tournament-menu').addEventListener('click', () => show('screen-tournament'));
