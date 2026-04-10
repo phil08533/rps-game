@@ -77,43 +77,48 @@ body:has(#screen-game.active) .mountain-bg { display: none; }
   image-rendering: crisp-edges;
 }
 
-/* Layer order (painted front-to-back via z-index so CSS stacks correctly) */
+/* Layer order: sky → far-mountains (tall, high horizon) → far-clouds → mountains (shorter, in front) → near-clouds → trees */
 .mb-sky {
   background-image: url('images/bg-mountain/sky.png');
-  background-size: auto 100%; background-position: 0 top;
+  background-size: auto 100%; background-position: 0 0%;
   animation: mbSky 500s linear infinite;
 }
+/* Far mountains: scaled large + bottom-anchored so peaks sit high on the horizon,
+   clearly peeking above the closer (shorter) foreground mountains */
 .mb-far-mountains {
   background-image: url('images/bg-mountain/far-mountains.png');
-  background-size: auto 52%; background-position: 0 100%;
+  background-size: auto 88%; background-position: 0 100%;
   animation: mbFarMtn 300s linear infinite;
 }
+/* Wispy far clouds: small strip near the very top of the sky */
 .mb-far-clouds {
   background-image: url('images/bg-mountain/far-clouds.png');
-  background-size: auto 38%; background-position: 0 12%;
+  background-size: auto 30%; background-position: 0 4%;
   animation: mbFarClouds 260s linear infinite;
 }
+/* Foreground mountains: deliberately shorter than far-mountains so far ones peek above */
 .mb-mountains {
   background-image: url('images/bg-mountain/mountains.png');
-  background-size: auto 68%; background-position: 0 100%;
+  background-size: auto 58%; background-position: 0 100%;
   animation: mbMtn 180s linear infinite;
 }
+/* Near clouds: pushed lower to hover right over the mountain ridge */
 .mb-near-clouds {
   background-image: url('images/bg-mountain/near-clouds.png');
-  background-size: auto 42%; background-position: 0 8%;
+  background-size: auto 52%; background-position: 0 44%;
   animation: mbNearClouds 130s linear infinite;
 }
 .mb-trees {
   background-image: url('images/bg-mountain/trees.png');
-  background-size: auto 38%; background-position: 0 100%;
+  background-size: auto 36%; background-position: 0 100%;
   animation: mbTrees 220s linear infinite;
 }
 
 @keyframes mbSky       { from{background-position:0 0%}        to{background-position:-12000px 0%} }
 @keyframes mbFarMtn    { from{background-position:0 100%}      to{background-position:-6000px 100%} }
-@keyframes mbFarClouds { from{background-position:0 12%}       to{background-position:-5000px 12%} }
+@keyframes mbFarClouds { from{background-position:0 4%}        to{background-position:-5000px 4%} }
 @keyframes mbMtn       { from{background-position:0 100%}      to{background-position:-8000px 100%} }
-@keyframes mbNearClouds{ from{background-position:0 8%}        to{background-position:-4000px 8%} }
+@keyframes mbNearClouds{ from{background-position:0 44%}       to{background-position:-4000px 44%} }
 @keyframes mbTrees     { from{background-position:0 100%}      to{background-position:-7000px 100%} }
 
 /* VHS haze overlay — drifting fog patches, no scanlines */
@@ -432,7 +437,7 @@ body:has(#screen-game.active) .fire-particles{display:block}
 .player-hand-area{display:flex;align-items:center;justify-content:center;gap:.4rem;padding:.6rem .75rem;background:rgba(0,0,0,.3);border-top:1px solid var(--border);flex-shrink:0;flex-wrap:nowrap;overflow-x:hidden;min-height:160px}
 
 /* ── Game Cards ───────────────────────────────────────────────── */
-.game-card{width:var(--card-w);max-width:var(--card-w);height:var(--card-h);border-radius:12px;border:2px solid transparent;cursor:pointer;user-select:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.3rem;transition:all .2s ease;position:relative;overflow:hidden;font-weight:700;font-size:.8rem;background:linear-gradient(160deg,rgba(230,59,26,.2),rgba(230,59,26,.08));border-color:rgba(230,59,26,.35);box-shadow:0 4px 16px rgba(0,0,0,.35);flex:0 1 var(--card-w);min-width:0}
+.game-card{width:var(--card-w);max-width:var(--card-w);height:var(--card-h);border-radius:12px;border:2px solid transparent;cursor:pointer;user-select:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.3rem;transition:all .2s ease;position:relative;overflow:hidden;font-weight:700;font-size:.8rem;background:linear-gradient(160deg,rgba(38,12,6,.90),rgba(22,6,2,.94));border-color:rgba(230,59,26,.55);box-shadow:0 4px 20px rgba(0,0,0,.7);flex:0 1 var(--card-w);min-width:0}
 .game-card:hover{transform:translateY(-8px) scale(1.04);border-color:var(--primary);box-shadow:0 8px 24px rgba(230,59,26,.4)}
 .game-card:active{transform:translateY(-4px) scale(.98)}
 .game-card.played{pointer-events:none;opacity:.3}
@@ -442,7 +447,7 @@ body:has(#screen-game.active) .fire-particles{display:block}
 .card-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 
 /* Face-down opponent */
-.opp-card{width:55px;height:80px;border-radius:10px;background:repeating-linear-gradient(45deg,rgba(230,59,26,.15),rgba(230,59,26,.15) 5px,rgba(230,59,26,.05) 5px,rgba(230,59,26,.05) 10px);border:2px solid rgba(230,59,26,.25);display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:rgba(230,59,26,.4);box-shadow:0 4px 12px rgba(0,0,0,.3);flex-shrink:0}
+.opp-card{width:55px;height:80px;border-radius:10px;background:repeating-linear-gradient(45deg,rgba(50,14,6,.92),rgba(50,14,6,.92) 5px,rgba(30,8,3,.95) 5px,rgba(30,8,3,.95) 10px);border:2px solid rgba(230,59,26,.45);display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:rgba(230,59,26,.6);box-shadow:0 4px 12px rgba(0,0,0,.6);flex-shrink:0}
 
 /* ── Skins ────────────────────────────────────────────────────── */
 .skin-neon .game-card{background:linear-gradient(160deg,rgba(0,255,180,.12),rgba(0,180,255,.08));border-color:rgba(0,255,180,.4);box-shadow:0 0 14px rgba(0,255,180,.15),0 4px 16px rgba(0,0,0,.3)}
