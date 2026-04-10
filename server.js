@@ -1157,6 +1157,26 @@ io.on('connection', (socket) => {
     if (t.players.length >= t.maxPlayers) setTimeout(() => kickOffTournament(t), 2000);
   });
 
+  socket.on('leave_tournament', ({ code }) => {
+    const tCode = (code || socket.currentTournament)?.toUpperCase();
+    const t = tCode ? tournaments[tCode] : null;
+    if (!t || t.state !== 'waiting') return;
+    const idx = t.players.findIndex(p => p.username === socket.username);
+    if (idx === -1) return;
+    t.players.splice(idx, 1);
+    t.prizePool -= t.entryFee;
+    const pd = getPlayer(socket.username);
+    pd.coins += t.entryFee;
+    socket.leave(tCode);
+    socket.currentTournament = null;
+    socket.emit('left_tournament', { playerData: { ...pd } });
+    if (t.players.length === 0) {
+      delete tournaments[tCode];
+    } else {
+      io.to(tCode).emit('tournament_update', { tournament: t });
+    }
+  });
+
   socket.on('start_tournament', ({ code }) => {
     const t = tournaments[code?.toUpperCase()];
     if (!t || t.state !== 'waiting') return socket.emit('error', { message: 'Cannot start' });
@@ -1260,6 +1280,24 @@ io.on('connection', (socket) => {
     // Remove from matchmaking queue
     const qi = matchQueue.findIndex(q => q.socketId === socket.id);
     if (qi >= 0) matchQueue.splice(qi, 1);
+
+    // Remove from waiting tournament lobby on disconnect
+    const tCode = socket.currentTournament;
+    if (tCode && tournaments[tCode] && tournaments[tCode].state === 'waiting') {
+      const t = tournaments[tCode];
+      const idx = t.players.findIndex(p => p.username === socket.username);
+      if (idx !== -1) {
+        t.players.splice(idx, 1);
+        t.prizePool -= t.entryFee;
+        const pd = getPlayer(socket.username);
+        pd.coins += t.entryFee;
+        if (t.players.length === 0) {
+          delete tournaments[tCode];
+        } else {
+          io.to(tCode).emit('tournament_update', { tournament: t });
+        }
+      }
+    }
 
     const roomCode = socket.currentRoom;
     if (roomCode && rooms[roomCode]) {

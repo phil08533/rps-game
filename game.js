@@ -699,6 +699,7 @@ socket.on('play_emote', ({username, emoteName}) => {
 socket.on('tournament_created', ({tournament,playerData}) => { S.playerData=playerData; S.tournamentCode=tournament.code; updMenu(); renderTL(tournament); show('screen-tourn-lobby'); toast('Tournament created!'); });
 socket.on('joined_tournament', ({tournament,playerData}) => { S.playerData=playerData; S.tournamentCode=tournament.code; updMenu(); renderTL(tournament); show('screen-tourn-lobby'); });
 socket.on('tournament_update', ({tournament}) => renderTL(tournament));
+socket.on('left_tournament', ({playerData}) => { S.playerData=playerData; updMenu(); });
 socket.on('tournament_started', () => { $('tourn-lobby-status').textContent='⚡ Preparing your match…'; $('btn-start-tourn').classList.add('hidden'); });
 socket.on('tournament_round_start', ({round}) => toast(`🏆 Round ${round}!`));
 socket.on('tournament_over', ({champion,tournamentCoinsEarned,placement}) => {
@@ -843,7 +844,13 @@ $('btn-login').addEventListener('click', () => {
   socket.emit('register', { username: n });
 });
 $('username-input').addEventListener('keydown', e => { if(e.key==='Enter') $('btn-login').click(); });
-document.querySelectorAll('.btn-back').forEach(b => b.addEventListener('click', () => { if(b.dataset.target) show(b.dataset.target); }));
+document.querySelectorAll('.btn-back').forEach(b => b.addEventListener('click', () => {
+  if (b.closest('#screen-tourn-lobby') && S.tournamentCode) {
+    socket.emit('leave_tournament', { code: S.tournamentCode });
+    S.tournamentCode = null;
+  }
+  if(b.dataset.target) show(b.dataset.target);
+}));
 
 $('btn-quickplay').addEventListener('click', () => show('screen-quickplay'));
 $('btn-tournament-menu').addEventListener('click', () => show('screen-tournament'));
