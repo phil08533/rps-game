@@ -77,49 +77,58 @@ body:has(#screen-game.active) .mountain-bg { display: none; }
   image-rendering: crisp-edges;
 }
 
-/* Layer order: sky → far-mountains (tall, high horizon) → far-clouds → mountains (shorter, in front) → near-clouds → trees */
+/*
+  Layer order (DOM = back → front):
+    sky → mountains → far-clouds → near-clouds → far-mountains → trees
+
+  Ground layers follow the 80% rule — each layer's top = 80% up from the
+  bottom of the layer behind it, keeping everything in the lower screen:
+    mountains  55% tall  → top at 45%
+    far-mtn    44% tall  → top at 56%  (= 80% of 55% from bottom)
+    trees      35% tall  → top at 65%  (= 80% of 44% from bottom)
+*/
 .mb-sky {
   background-image: url('images/bg-mountain/sky.png');
   background-size: auto 100%; background-position: 0 0%;
   animation: mbSky 500s linear infinite;
 }
-/* Far mountains: scaled large + bottom-anchored so peaks sit high on the horizon,
-   clearly peeking above the closer (shorter) foreground mountains */
-.mb-far-mountains {
-  background-image: url('images/bg-mountain/far-mountains.png');
-  background-size: auto 88%; background-position: 0 100%;
-  animation: mbFarMtn 300s linear infinite;
-}
-/* Wispy far clouds: small strip near the very top of the sky */
-.mb-far-clouds {
-  background-image: url('images/bg-mountain/far-clouds.png');
-  background-size: auto 30%; background-position: 0 4%;
-  animation: mbFarClouds 260s linear infinite;
-}
-/* Foreground mountains: deliberately shorter than far-mountains so far ones peek above */
+/* Big red mountains — tallest ground layer, furthest back */
 .mb-mountains {
   background-image: url('images/bg-mountain/mountains.png');
-  background-size: auto 58%; background-position: 0 100%;
+  background-size: auto 55%; background-position: 0 100%;
   animation: mbMtn 180s linear infinite;
 }
-/* Near clouds: pushed lower to hover right over the mountain ridge */
+/* Wispy far clouds — float in upper sky above the mountains */
+.mb-far-clouds {
+  background-image: url('images/bg-mountain/far-clouds.png');
+  background-size: auto 26%; background-position: 0 12%;
+  animation: mbFarClouds 260s linear infinite;
+}
+/* Orange near clouds — hover over the mountain ridgeline */
 .mb-near-clouds {
   background-image: url('images/bg-mountain/near-clouds.png');
-  background-size: auto 52%; background-position: 0 44%;
+  background-size: auto 46%; background-position: 0 20%;
   animation: mbNearClouds 130s linear infinite;
 }
+/* Spikey mountains — right behind trees (80% rule: top at 56%) */
+.mb-far-mountains {
+  background-image: url('images/bg-mountain/far-mountains.png');
+  background-size: auto 44%; background-position: 0 100%;
+  animation: mbFarMtn 220s linear infinite;
+}
+/* Trees — frontmost ground layer (80% rule: top at 65%) */
 .mb-trees {
   background-image: url('images/bg-mountain/trees.png');
-  background-size: auto 36%; background-position: 0 100%;
-  animation: mbTrees 220s linear infinite;
+  background-size: auto 35%; background-position: 0 100%;
+  animation: mbTrees 280s linear infinite;
 }
 
-@keyframes mbSky       { from{background-position:0 0%}        to{background-position:-12000px 0%} }
-@keyframes mbFarMtn    { from{background-position:0 100%}      to{background-position:-6000px 100%} }
-@keyframes mbFarClouds { from{background-position:0 4%}        to{background-position:-5000px 4%} }
-@keyframes mbMtn       { from{background-position:0 100%}      to{background-position:-8000px 100%} }
-@keyframes mbNearClouds{ from{background-position:0 44%}       to{background-position:-4000px 44%} }
-@keyframes mbTrees     { from{background-position:0 100%}      to{background-position:-7000px 100%} }
+@keyframes mbSky       { from{background-position:0 0%}   to{background-position:-12000px 0%} }
+@keyframes mbMtn       { from{background-position:0 100%} to{background-position:-8000px 100%} }
+@keyframes mbFarClouds { from{background-position:0 12%}  to{background-position:-5000px 12%} }
+@keyframes mbNearClouds{ from{background-position:0 20%}  to{background-position:-4000px 20%} }
+@keyframes mbFarMtn    { from{background-position:0 100%} to{background-position:-6000px 100%} }
+@keyframes mbTrees     { from{background-position:0 100%} to{background-position:-7000px 100%} }
 
 /* VHS haze overlay — drifting fog patches, no scanlines */
 .mb-vhs { position: absolute; inset: 0; pointer-events: none; }
