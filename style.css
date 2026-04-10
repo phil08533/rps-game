@@ -63,7 +63,7 @@ input:focus{border-color:var(--primary)}
    MOUNTAIN PARALLAX BACKGROUND  (all screens except game)
    ══════════════════════════════════════════════════════════════ */
 .mountain-bg {
-  position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
+  position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
   filter: sepia(0.18) saturate(0.72) brightness(0.82);
 }
 /* Hide mountain when game screen is active */
@@ -147,7 +147,7 @@ body:has(#screen-game.active) .mountain-bg { display: none; }
    ══════════════════════════════════════════════════════════════ */
 .wasteland-bg {
   display: none;
-  position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
+  position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
 }
 body:has(#screen-game.active) .wasteland-bg { display: block; }
 
@@ -181,7 +181,7 @@ body:has(#screen-game.active) .wasteland-bg { display: block; }
    ══════════════════════════════════════════════════════════════ */
 .global-fire-bg {
   display: none;
-  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
   background: radial-gradient(ellipse at 50% 80%, rgba(180,59,10,0.28) 0%, transparent 65%),
               radial-gradient(ellipse at 80% 90%, rgba(255,193,7,0.08) 0%, transparent 55%);
   animation: bgPulse 4s ease-in-out infinite alternate;
@@ -190,7 +190,7 @@ body:has(#screen-game.active) .global-fire-bg { display: block; }
 @keyframes bgPulse{from{opacity:.5}to{opacity:1}}
 
 /* Fire particles — arena only */
-.fire-particles{display:none;position:fixed;inset:0;z-index:1;overflow:hidden;pointer-events:none}
+.fire-particles{display:none;position:fixed;inset:0;z-index:2;overflow:hidden;pointer-events:none}
 body:has(#screen-game.active) .fire-particles{display:block}
 .fire-particles span{position:absolute;bottom:-10px;width:8px;height:8px;border-radius:50%;animation:rise 3s ease-in infinite;opacity:0}
 .fire-particles span:nth-child(1){left:10%;animation-delay:0s;background:#ff4500}
