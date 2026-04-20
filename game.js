@@ -7,14 +7,22 @@ const socket = io(BACKEND_URL, { autoConnect: true, reconnection: true, reconnec
 let S = {
   playerData: null, shop: null, myIndex: 0, myHand: [], opponentName: '',
   myScore: 0, oppScore: 0, round: 1, maxRounds: 7, played: false,
+  myHp: 100, myMaxHp: 100, myStamina: 30, myMaxStamina: 30,
+  oppHp: 100, oppMaxHp: 100, oppStamina: 30, oppMaxStamina: 30,
   roomCode: null, tournamentCode: null, isTournament: false,
-  tournamentMaxPlayers: 4, activeShopTab: 'passive-perks',
+  tournamentMaxPlayers: 4, activeShopTab: 'cards',
   oppCardCount: 0, activePerksRemaining: [], lbPeriod: 'alltime',
   searching: false, currentInviteId: null, opponentAvatar: null,
 };
 
 // ── Card/Perk meta ────────────────────────────────────────────
-const CM = { rock: { e:'🪨', l:'Rock' }, paper: { e:'📄', l:'Paper' }, scissors: { e:'✂️', l:'Scissors' } };
+// ── Card/Perk meta ────────────────────────────────────────────
+const CM = {};
+if (typeof CONFIG !== 'undefined') {
+  for (const [id, c] of Object.entries(CONFIG.BASE_CARDS)) {
+    CM[id] = { e: CONFIG.ELEMENTS[c.type].icon, l: c.name, bg: CONFIG.ELEMENTS[c.type].color, c };
+  }
+}
 const SM = {
   classic:{ic:'⬜',cl:''},neon:{ic:'💚',cl:'skin-neon'},fire:{ic:'🔥',cl:'skin-fire'},
   galaxy:{ic:'🌌',cl:'skin-galaxy'},gold:{ic:'✨',cl:'skin-gold'},ice:{ic:'❄️',cl:'skin-ice'},
@@ -101,7 +109,8 @@ function renderHand() {
     const el = document.createElement('div');
     el.className = 'game-card' + (S.played ? ' played' : '');
     el.dataset.idx = i; el.draggable = !S.played;
-    const m = CM[c] || { e:'❓', l:'?' };
+    const metaId = c.cardId || c;
+    const m = CM[metaId] || { e: '❓', l: '?' };
     el.innerHTML = `<span class="card-emoji">${m.e}</span><span class="card-label">${m.l}</span>`;
     el.addEventListener('click', () => playCard(i));
     el.addEventListener('dragstart', e => { if(S.played) return e.preventDefault(); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',i); setTimeout(()=>el.classList.add('dragging'),0); _dSrc=i; });
@@ -122,10 +131,26 @@ function renderOpp(count) {
   $('opp-card-count').textContent = count > 0 ? '●'.repeat(Math.min(count,10)) : '—';
 }
 function updRound() {
-  $('my-score-num').textContent=S.myScore; $('opp-score-num').textContent=S.oppScore;
-  $('round-label').textContent=`Round ${S.round} / ${S.maxRounds}`;
-  $('my-score-name').textContent=S.playerData?.username?.slice(0,8)||'You';
-  $('opp-name').textContent=S.opponentName;
+  // S.myScore/oppScore are now their HP for backwards compat, but we have S.myHp, S.myMaxHp etc.
+  if ($('my-hp-text') && S.myHp !== undefined) {
+    $('my-hp-text').textContent = `${S.myHp} / ${S.myMaxHp} HP`;
+    $('my-hp-bar').style.width = Math.max(0, (S.myHp / S.myMaxHp) * 100) + '%';
+    $('my-stam-text').textContent = `${S.myStamina} / ${S.myMaxStamina} STAM`;
+    $('my-stam-bar').style.width = Math.max(0, (S.myStamina / S.myMaxStamina) * 100) + '%';
+  }
+  if ($('opp-hp-text') && S.oppHp !== undefined) {
+    $('opp-hp-text').textContent = `${S.oppHp} / ${S.oppMaxHp} HP`;
+    $('opp-hp-bar').style.width = Math.max(0, (S.oppHp / S.oppMaxHp) * 100) + '%';
+    $('opp-stam-text').textContent = `${S.oppStamina} / ${S.oppMaxStamina} STAM`;
+    $('opp-stam-bar').style.width = Math.max(0, (S.oppStamina / S.oppMaxStamina) * 100) + '%';
+  }
+  // Old score fallback just in case
+  if ($('my-score-num')) $('my-score-num').textContent=S.myHp || S.myScore; 
+  if ($('opp-score-num')) $('opp-score-num').textContent=S.oppHp || S.oppScore;
+  
+  if ($('round-label')) $('round-label').textContent=`Round ${S.round} / ${S.maxRounds}`;
+  if ($('my-score-name')) $('my-score-name').textContent=S.playerData?.username?.slice(0,8)||'You';
+  if ($('opp-name')) $('opp-name').textContent=S.opponentName;
   setAvatar('opp-avatar', S.opponentAvatar, S.opponentName);
 }
 
@@ -168,8 +193,10 @@ function showRound(d) {
   setTimeout(() => {
     // Inject REAL data exactly as they start to flip (around 200ms)
     setTimeout(() => {
-      myCard.innerHTML = `<span class="card-emoji">${(CM[d.myCard]||{e:'❓'}).e}</span><span class="card-label">${(CM[d.myCard]||{e:'?'}).l}</span>`;
-      const opM = d.opponentCard ? (CM[d.opponentCard]||{e:'❓'}) : d.opponentPhantom ? {e:'👻',l:'Hidden'} : {e:'❌',l:'None'};
+      const myId = d.myCard?.cardId || d.myCard;
+      const opId = d.opponentCard?.cardId || d.opponentCard;
+      myCard.innerHTML = `<span class="card-emoji">${(CM[myId] || { e: '❓' }).e}</span><span class="card-label">${(CM[myId] || { e: '?' }).l}</span>`;
+      const opM = opId ? (CM[opId] || { e: '❓' }) : d.opponentPhantom ? { e: '👻', l: 'Hidden' } : { e: '❌', l: 'None' };
       oppCard.innerHTML = `<span class="card-emoji">${opM.e}</span><span class="card-label">${opM.l}</span>`;
     }, 200);
 
@@ -216,6 +243,8 @@ function showRound(d) {
         if(oppAv) { oppAv.className = 'arena-avatar'; oppAv.parentElement.classList.remove('anim-winner-slap'); }
         
         S.myScore=d.myScore; S.oppScore=d.opponentScore; S.round=d.round;
+        S.myHp=d.myHp; S.myMaxHp=d.myMaxHp; S.myStamina=d.myStamina; S.myMaxStamina=d.myMaxStamina;
+        S.oppHp=d.oppHp; S.oppMaxHp=d.oppMaxHp; S.oppStamina=d.oppStamina; S.oppMaxStamina=d.oppMaxStamina;
         S.myHand=d.newHand; S.played=false; S.activePerksRemaining=d.activePerksRemaining||[];
         renderHand(); renderOpp(d.opponentCardCount); updRound(); renderPerkBar();
         $('game-status').textContent=S.myHand.length>0?'Tap a card · Hold to drag':'Out of cards…';
@@ -237,6 +266,10 @@ function showGO(d) {
   $('go-my-name').textContent=d.playerData?.username||'You';
   $('go-coins').textContent=`+${d.coinsEarned} 🪙`;
   
+  // Show Card XP award
+  if (d.playerData) {
+    toast('⚔️ Your Cards gained XP!');
+  }
   // Re-show double reward button if coins were earned
   const dbtn = $('btn-double-reward');
   if (dbtn) dbtn.style.display = d.coinsEarned > 0 ? 'block' : 'none';
@@ -245,58 +278,49 @@ function showGO(d) {
   show('screen-gameover');
 }
 
-// ── Shop ──────────────────────────────────────────────────────
+// ── Shop (RPG Armory) ──────────────────────────────────────────
 function renderShop() {
   const p=S.playerData,sh=S.shop; if(!p||!sh) return;
   $('shop-coins').textContent=p.coins;
   const c=$('shop-content'); c.innerHTML='';
   const tab=S.activeShopTab;
 
-  if(tab==='passive-perks'||tab==='active-perks') {
-    const type=tab==='passive-perks'?'passive':'active';
-    Object.values(sh.perks).filter(pk=>pk.type===type).forEach(item => {
-      const owned=p.unlockedPerks.includes(item.id), equipped=p.equippedPerks.includes(item.id);
-      const el=document.createElement('div'); el.className='shop-item';
-      el.innerHTML=`<div class="si-icon">${item.icon}</div><div class="si-info"><div class="si-name">${item.name}</div><div class="si-desc">${item.description}</div></div><div class="si-action">${
-        equipped?`<button class="btn-buy" data-id="${item.id}" data-type="unequip">Unequip</button>`
-        :owned?`<button class="btn-buy" data-id="${item.id}" data-type="equip">Equip</button>`
-        :`<button class="btn-buy" data-id="${item.id}" data-type="buy-perk" ${p.coins<item.cost?'disabled':''}>${item.cost} 🪙</button>`
-      }</div>`;
-      c.appendChild(el);
-    });
-  } else if(tab==='skins') {
-    [{id:'classic',name:'Classic',cost:0,description:'Default'},...Object.values(sh.skins)].forEach(item=>{
-      const owned=p.unlockedSkins.includes(item.id),equipped=p.equippedSkin===item.id;
-      const meta=SM[item.id]||{};
-      const el=document.createElement('div'); el.className='shop-item';
-      el.innerHTML=`<div class="si-icon">${meta.ic||'🎨'}</div><div class="si-info"><div class="si-name">${item.name}</div><div class="si-desc">${item.description}</div></div><div class="si-action">${
-        equipped?'<span class="badge-equipped">Equipped</span>'
-        :owned?`<button class="btn-buy" data-id="${item.id}" data-type="equip-skin">Equip</button>`
-        :item.cost===0?'<span class="badge-owned">Free</span>'
-        :`<button class="btn-buy" data-id="${item.id}" data-type="buy-skin" ${p.coins<item.cost?'disabled':''}>${item.cost} 🪙</button>`
-      }</div>`;
-      c.appendChild(el);
-    });
-  } else if(tab==='slots') {
-    const next=p.perkSlots+1;
-    const el=document.createElement('div'); el.className='slot-upgrade-card';
-    if(next>5) {
-      el.innerHTML=`<h4>🛡️ Max Perk Slots</h4><p>You have all 5 slots unlocked!</p><p style="font-size:2rem;margin:.5rem 0">⚔️</p>`;
-    } else {
-      const cost=sh.slotCosts[next];
-      el.innerHTML=`<h4>🛡️ Perk Slots: ${p.perkSlots} / 5</h4><p>Equip more perks at once. Slot ${next} costs <strong>${cost} 🪙</strong></p><button class="btn btn-primary" id="btn-buy-slot" ${p.coins<cost?'disabled':''}>Upgrade to ${next} Slots — ${cost} 🪙</button>`;
+  if (tab==='cards') {
+    // Card Pack
+    const packEl = document.createElement('div'); packEl.className='slot-upgrade-card';
+    packEl.innerHTML=`
+      <div style="font-size:3rem">🃏</div>
+      <h4>Card Pack</h4>
+      <p>Open a random spell card to add to your Spell Book.</p>
+      <button class="btn btn-primary" data-type="buy-pack" ${p.coins<200?'disabled':''}>Open Pack — 200 🪙</button>
+    `;
+    c.appendChild(packEl);
+    // Show all card types
+    const header = document.createElement('h4'); header.className='section-title'; header.style.marginTop='1.5rem'; header.textContent='All Spell Types'; c.appendChild(header);
+    if (typeof CONFIG !== 'undefined') {
+      Object.entries(CONFIG.BASE_CARDS).forEach(([id, card]) => {
+        const elem = CONFIG.ELEMENTS[card.type] || {};
+        const el = document.createElement('div'); el.className='shop-item';
+        el.innerHTML=`<div class="si-icon" style="background:${elem.color||'#333'};border-radius:8px;padding:4px">${elem.icon||'❓'}</div><div class="si-info"><div class="si-name">${card.name}</div><div class="si-desc">${elem.name||card.type} · ${card.effect||'No special effect'}</div></div><div class="si-action"><span style="font-size:0.75rem;color:var(--muted)">DMG ${card.damage}</span></div>`;
+        c.appendChild(el);
+      });
     }
-    c.appendChild(el);
-    if(p.equippedPerks.length>0){
-      const h=document.createElement('h4');h.className='section-title';h.style.marginTop='1rem';h.textContent='Equipped Perks';c.appendChild(h);
-      p.equippedPerks.forEach(id=>{const pk=sh.perks[id];if(!pk)return;const d=document.createElement('div');d.className='shop-item';d.innerHTML=`<div class="si-icon">${pk.icon}</div><div class="si-info"><div class="si-name">${pk.name}</div><div class="si-desc">${pk.type}</div></div><div class="si-action"><button class="btn-buy" data-id="${id}" data-type="unequip">Remove</button></div>`;c.appendChild(d);});
+  } else if (tab==='runes') {
+    if (typeof CONFIG !== 'undefined' && CONFIG.RUNES) {
+      Object.entries(CONFIG.RUNES).forEach(([id, rune]) => {
+        const el = document.createElement('div'); el.className='shop-item';
+        el.innerHTML=`<div class="si-icon">${rune.icon||'💎'}</div><div class="si-info"><div class="si-name">${rune.name}</div><div class="si-desc">${rune.description||''}</div></div><div class="si-action"><button class="btn-buy" data-id="${id}" data-type="buy-rune" ${p.coins<rune.cost?'disabled':''}>${rune.cost} 🪙</button></div>`;
+        c.appendChild(el);
+      });
+    } else {
+      c.innerHTML='<p style="color:var(--muted);text-align:center;padding:2rem">Runes coming soon!</p>';
     }
   } else if(tab==='avatars') {
     for (let i = 6; i <= 18; i++) {
       const avatarId = `Char ${i}`;
       const owned = p.unlockedAvatars.includes(avatarId);
       const equipped = p.equippedAvatar === avatarId;
-      const cost = sh.avatarCosts[avatarId];
+      const cost = sh.avatarCosts?.[avatarId] || 500;
       const el = document.createElement('div'); el.className='shop-item';
       el.innerHTML=`<div class="si-icon"><div class="avatar-display" style="background-image:url('avatars/${avatarId}/sprite.png');transform:scale(0.8)"></div></div><div class="si-info"><div class="si-name">Gladiator ${i}</div></div><div class="si-action">${
         equipped?'<span class="badge-equipped">Equipped</span>'
@@ -305,36 +329,84 @@ function renderShop() {
       }</div>`;
       c.appendChild(el);
     }
-  } else if(tab==='rewards') {
-    const el=document.createElement('div'); el.className='reward-ad-card';
-    el.innerHTML=`
-      <div class="reward-sparkle">✨</div>
-      <h4>Free Coins</h4>
-      <p>Watch a short video to earn coins!</p>
-      <button id="btn-start-reward-ad" class="btn btn-primary btn-full">Watch Video (+100 🪙)</button>
-    `;
-    c.appendChild(el);
-    const rb = $('btn-start-reward-ad');
-    if(rb) rb.onclick = () => showAd();
+  } else if(tab==='passive-perks'||tab==='active-perks') {
+    c.innerHTML='<p style="color:var(--muted);text-align:center;padding:2rem">Perks have been replaced by Runes! Check the Runes tab.</p>';
   }
 
   c.onclick = e => {
-    const b=e.target.closest('[data-type]'); if(!b||b.disabled) return;
-    const t=b.dataset.type, id=b.dataset.id;
-    if(t==='buy-skin') socket.emit('purchase_skin',{skinId:id});
-    if(t==='equip-skin') socket.emit('equip_skin',{skinId:id});
-    if(t==='buy-perk') socket.emit('purchase_perk',{perkId:id});
-    if(t==='buy-avatar') socket.emit('purchase_avatar',{avatarId:id});
-    if(t==='equip-avatar') socket.emit('equip_avatar',{avatarId:id});
-    if(t==='equip') socket.emit('equip_perk',{perkId:id});
-    if(t==='unequip') socket.emit('unequip_perk',{perkId:id});
+    const b = e.target.closest('[data-type]');
+    if (!b || b.disabled) return;
+    const t = b.dataset.type, id = b.dataset.id;
+    if (t === 'buy-pack') socket.emit('purchase_card_pack');
+    if (t === 'buy-rune') socket.emit('purchase_rune', { runeId: id });
+    if (t === 'buy-avatar') socket.emit('purchase_avatar', { avatarId: id });
+    if (t === 'equip-avatar') socket.emit('equip_avatar', { avatarId: id });
   };
-  setTimeout(()=>{const sb=$('btn-buy-slot');if(sb)sb.onclick=()=>socket.emit('upgrade_perk_slots');},50);
 }
+// ── Grimoire (Deck Builder & Profile) ──────────────────────────────────
+function renderGrimoire() {
+  const p = S.playerData; if(!p) return;
+  
+  // Render Deck
+  const dq = $('grim-deck-grid'); dq.innerHTML = '';
+  p.deck.forEach((uuid, i) => {
+    const cardData = p.collection[uuid];
+    if (!cardData) return;
+    const base = CONFIG.BASE_CARDS[cardData.cardId] || { name:'Unknown', type:'physical' };
+    const meta = CM[cardData.cardId] || { e:'❓', l:'?' };
+    const el = document.createElement('div');
+    el.className = 'game-card';
+    el.innerHTML = `
+      <div style="position:absolute; top:4px; right:6px; font-size:0.6rem; color:var(--accent)">Lv.${cardData.level}</div>
+      <span class="card-emoji">${meta.e}</span>
+      <span class="card-label">${meta.l}</span>
+      <div class="card-actions-overlay">
+        <button class="btn btn-xs btn-secondary" onclick="socket.emit('move_to_spellbook', { uuid: '${uuid}' })">Unequip</button>
+      </div>
+      <div style="font-size:0.6rem; color:var(--muted)">XP: ${cardData.xp}/${cardData.level*100}</div>
+    `;
+    dq.appendChild(el);
+  });
 
-// ── Profile ───────────────────────────────────────────────────
-function renderProfile() {
-  const p=S.playerData; if(!p) return;
+  // Render Spell Book
+  const sq = $('grim-sb-grid'); sq.innerHTML = '';
+  p.spellBook.forEach((uuid) => {
+    const cardData = p.collection[uuid];
+    if (!cardData) return;
+    const meta = CM[cardData.cardId] || { e:'❓', l:'?' };
+    const el = document.createElement('div');
+    el.className = 'game-card';
+    el.innerHTML = `
+      <div style="position:absolute; top:4px; right:6px; font-size:0.6rem; color:var(--accent)">Lv.${cardData.level}</div>
+      <span class="card-emoji">${meta.e}</span>
+      <span class="card-label">${meta.l}</span>
+      <div class="card-actions-overlay">
+        <button class="btn btn-xs btn-primary" onclick="socket.emit('move_to_deck', { uuid: '${uuid}' })">Equip</button>
+      </div>
+    `;
+    sq.appendChild(el);
+  });
+
+  // Render Collection
+  const cq = $('grim-col-grid'); cq.innerHTML = '';
+  Object.keys(p.collection).forEach((uuid) => {
+    if (p.deck.includes(uuid) || p.spellBook.includes(uuid)) return;
+    const cardData = p.collection[uuid];
+    const meta = CM[cardData.cardId] || { e:'❓', l:'?' };
+    const el = document.createElement('div');
+    el.className = 'game-card'; el.style.opacity = '0.7';
+    el.innerHTML = `
+      <div style="position:absolute; top:4px; right:6px; font-size:0.6rem; color:var(--accent)">Lv.${cardData.level}</div>
+      <span class="card-emoji">${meta.e}</span>
+      <span class="card-label">${meta.l}</span>
+      <div class="card-actions-overlay">
+        <button class="btn btn-xs btn-primary" onclick="socket.emit('move_to_spellbook', { uuid: '${uuid}' })">Take</button>
+      </div>
+    `;
+    cq.appendChild(el);
+  });
+
+  // Render Profile Tab
   setAvatar('prof-avatar-big', p.equippedAvatar, p.username);
   $('prof-avatar-big').style.transform = 'scale(1.5)';
   $('prof-username').textContent=p.nickname || p.username;
@@ -342,21 +414,19 @@ function renderProfile() {
   $('prof-coins').textContent=p.coins; $('prof-wins').textContent=p.wins;
   $('prof-losses').textContent=p.losses;
   $('prof-games').textContent=p.gamesPlayed;
-  $('prof-slot-count').textContent=p.perkSlots;
-  const epl=$('prof-equipped-perks'); epl.innerHTML='';
-  if(p.equippedPerks.length===0) epl.innerHTML='<div class="equipped-perk-item" style="color:var(--muted)">No perks equipped</div>';
-  else p.equippedPerks.forEach(id=>{const pk=S.shop?.perks?.[id];if(!pk)return;const d=document.createElement('div');d.className='equipped-perk-item';d.innerHTML=`<span class="epi-icon">${pk.icon}</span><span class="epi-name">${pk.name}</span><span class="epi-type">${pk.type}</span>`;epl.appendChild(d);});
-  const sr=$('prof-skin-preview'); sr.innerHTML='';
-  Object.entries(SM).forEach(([id,m])=>{const d=document.createElement('div');d.className='skin-dot';d.textContent=m.ic;d.style.border=p.equippedSkin===id?'2px solid var(--accent)':'2px solid transparent';d.style.opacity=p.unlockedSkins.includes(id)||id==='classic'?'1':'0.3';sr.appendChild(d);});
+  $('prof-hp').textContent=p.maxHp;
+  $('prof-stam').textContent=p.maxStamina;
 
   const ar=$('prof-avatar-preview'); ar.innerHTML='';
-  ['Char 1','Char 2','Char 3','Char 4','Char 5'].forEach(vid=>{
+  for (let i = 6; i <= 18; i++) {
+    const vid = `Char ${i}`;
+    if (!p.unlockedAvatars.includes(vid)) continue;
     const d=document.createElement('div'); d.className='avatar-thumb ' + (p.equippedAvatar===vid?'owned':'locked');
     d.style.backgroundImage=`url("avatars/${vid}/sprite.png")`;
     if(p.equippedAvatar===vid) d.style.borderColor='var(--accent)';
     d.onclick = () => socket.emit('equip_avatar',{avatarId:vid});
     ar.appendChild(d);
-  });
+  }
 }
 
 // ── Leaderboard ───────────────────────────────────────────────
@@ -441,6 +511,11 @@ socket.on('game_start', d => {
   S.myScore=0; S.oppScore=0; S.round=1; S.maxRounds=d.maxRounds; S.played=false;
   S.roomCode=d.room; S.isTournament=d.isTournament||false; S.tournamentCode=d.tournamentCode||null;
   S.activePerksRemaining=d.activePerksRemaining||[]; S.searching=false;
+  // Initialize HP/Stamina
+  S.myHp=d.myHp||100; S.myMaxHp=d.myMaxHp||100;
+  S.myStamina=d.myStamina||30; S.myMaxStamina=d.myMaxStamina||30;
+  S.oppHp=d.oppHp||100; S.oppMaxHp=d.oppMaxHp||100;
+  S.oppStamina=d.oppStamina||30; S.oppMaxStamina=d.oppMaxStamina||30;
   // Reset matchmaking UI
   $('btn-find-match').classList.remove('hidden');
   if ($('btn-play-bot')) $('btn-play-bot').classList.remove('hidden');
@@ -454,7 +529,7 @@ socket.on('game_start', d => {
   setAvatar('arena-opp-avatar', S.opponentAvatar, S.opponentName);
   
   renderHand(); renderOpp(d.opponentCardCount); updRound(); renderPerkBar();
-  $('game-status').textContent='Tap a card · Hold to drag';
+  $('game-status').textContent='Tap a card to play';
 });
 
 socket.on('opponent_played', () => { if(!S.played) $('game-status').textContent='⚡ Opponent played!'; });
@@ -484,7 +559,8 @@ socket.on('encore_replay', d => {
 });
 
 // Shop
-socket.on('purchase_success', ({playerData}) => { S.playerData=playerData; applySkin(playerData.equippedSkin); updMenu(); renderShop(); renderProfile(); toast('✅ Done!'); });
+socket.on('purchase_success', ({playerData}) => { S.playerData=playerData; updMenu(); renderShop(); renderGrimoire(); toast('✅ Done!'); });
+socket.on('hand_updated', ({newHand}) => { S.myHand = newHand; renderHand(); });
 
 // Emotes
 socket.on('play_emote', ({username, emoteName}) => {
@@ -552,10 +628,57 @@ $('username-input').addEventListener('keydown', e => { if(e.key==='Enter') $('bt
 document.querySelectorAll('.btn-back').forEach(b => b.addEventListener('click', () => { if(b.dataset.target) show(b.dataset.target); }));
 
 $('btn-quickplay').addEventListener('click', () => show('screen-quickplay'));
-$('btn-tournament-menu').addEventListener('click', () => show('screen-tournament'));
-$('btn-shop').addEventListener('click', () => { renderShop(); show('screen-shop'); });
-$('btn-profile').addEventListener('click', () => { renderProfile(); show('screen-profile'); });
+if($('btn-tournament-menu')) $('btn-tournament-menu').addEventListener('click', () => show('screen-tournament'));
+$('btn-shop').addEventListener('click', () => { S.activeShopTab='cards'; renderShop(); show('screen-shop'); });
+$('btn-grimoire').addEventListener('click', () => { renderGrimoire(); show('screen-grimoire'); });
+$('btn-campaign').addEventListener('click', () => { renderCampaign(); show('screen-campaign'); });
 $('btn-leaderboard').addEventListener('click', () => { socket.emit('get_leaderboard',{period:S.lbPeriod}); show('screen-leaderboard'); });
+
+// Campaign Stage Renderer
+function renderCampaign() {
+  const p = S.playerData; if(!p) return;
+  const stages = (typeof CONFIG !== 'undefined') ? CONFIG.CAMPAIGN_STAGES : [];
+  const list = $('campaign-stages'); if(!list) return;
+  list.innerHTML = '';
+  const progress = p.campaignProgress || 1;
+  stages.forEach((stage, i) => {
+    const stageNum = i + 1;
+    const isUnlocked = stageNum <= progress;
+    const isCurrent = stageNum === progress;
+    const isComplete = stageNum < progress;
+    const el = document.createElement('div');
+    el.style.cssText = `display:flex; align-items:center; gap:1rem; padding:1rem; background:${isUnlocked?'rgba(230,59,26,0.1)':'rgba(255,255,255,0.03)'}; border:1px solid ${isCurrent?'var(--primary)':'rgba(255,255,255,0.1)'}; border-radius:12px; opacity:${isUnlocked?'1':'0.5'}`;
+    el.innerHTML = `
+      <div style="font-size:2rem">${isComplete?'✅':isCurrent?'⚔️':'🔒'}</div>
+      <div style="flex:1; text-align:left">
+        <div style="font-weight:700">${stage.name}</div>
+        <div style="font-size:0.8rem; color:var(--muted)">${stage.description||''}</div>
+      </div>
+      <div style="font-size:0.8rem; color:var(--accent)">HP: ${stage.opponentHp||80}</div>
+    `;
+    list.appendChild(el);
+  });
+  const currentStage = stages[progress - 1];
+  const playBtn = $('btn-campaign-play');
+  if (playBtn && currentStage) {
+    playBtn.textContent = `⚔️ Fight: ${currentStage.name}`;
+    playBtn.onclick = () => socket.emit('play_campaign_stage', { stageIndex: progress - 1 });
+  }
+}
+
+// Grimoire Tabs Logic
+document.querySelectorAll('#screen-grimoire .tab-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#screen-grimoire .tab-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    $('grim-deck-view').style.display = 'none';
+    $('grim-sb-view').style.display = 'none';
+    $('grim-prof-view').style.display = 'none';
+    if(b.dataset.tab === 'deck') $('grim-deck-view').style.display = 'block';
+    if(b.dataset.tab === 'spellbook') $('grim-sb-view').style.display = 'block';
+    if(b.dataset.tab === 'my-profile') $('grim-prof-view').style.display = 'block';
+  });
+});
 $('btn-friends').addEventListener('click', () => { socket.emit('get_friends'); show('screen-friends'); });
 
 $('btn-create').addEventListener('click', () => socket.emit('create_room'));

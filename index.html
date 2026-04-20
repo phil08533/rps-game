@@ -87,11 +87,11 @@
       <h2>Ready to Battle?</h2>
       <p id="menu-stats">Wins: 0 · Losses: 0 · Games: 0</p>
     </div>
-    <button id="btn-quickplay" class="menu-card btn-card"><span class="mc-icon">⚔️</span><span class="mc-title">Quick Play</span><span class="mc-sub">1v1 · Best of 7</span></button>
-    <button id="btn-tournament-menu" class="menu-card btn-card"><span class="mc-icon">🏆</span><span class="mc-title">Tournament</span><span class="mc-sub">Compete for coins</span></button>
-    <button id="btn-shop" class="menu-card btn-card"><span class="mc-icon">🛒</span><span class="mc-title">Armory</span><span class="mc-sub">Skins, Perks &amp; Slots</span></button>
-    <button id="btn-profile" class="menu-card btn-card"><span class="mc-icon">👤</span><span class="mc-title">Profile</span><span class="mc-sub">Stats &amp; loadout</span></button>
-    <button id="btn-leaderboard" class="menu-card btn-card"><span class="mc-icon">📊</span><span class="mc-title">Leaderboard</span><span class="mc-sub">Top warriors</span></button>
+    <button id="btn-campaign" class="menu-card btn-card"><span class="mc-icon">🗺️</span><span class="mc-title">Campaign</span><span class="mc-sub">Sorcerer's Apprentice</span></button>
+    <button id="btn-quickplay" class="menu-card btn-card"><span class="mc-icon">⚔️</span><span class="mc-title">Ranked Arena</span><span class="mc-sub">PvP Matchmaking</span></button>
+    <button id="btn-grimoire" class="menu-card btn-card"><span class="mc-icon">📖</span><span class="mc-title">Grimoire</span><span class="mc-sub">Deck & Spell Book</span></button>
+    <button id="btn-shop" class="menu-card btn-card"><span class="mc-icon">🔮</span><span class="mc-title">Armory</span><span class="mc-sub">Packs & Runes</span></button>
+    <button id="btn-leaderboard" class="menu-card btn-card"><span class="mc-icon">📊</span><span class="mc-title">Leaderboard</span><span class="mc-sub">Top Archmages</span></button>
     <button id="btn-friends" class="menu-card btn-card"><span class="mc-icon">🤝</span><span class="mc-title">Friends</span><span class="mc-sub">Add &amp; challenge</span></button>
   </main>
 </div>
@@ -123,12 +123,29 @@
 <div id="screen-game" class="screen">
   <div class="game-top">
     <div class="opp-info" style="visibility:hidden"><span class="opp-avatar" id="opp-avatar">?</span><div class="opp-details"><span id="opp-name">Opponent</span><span id="opp-card-count" class="card-count-badge">● ● ●</span></div></div>
-    <div class="score-board">
-      <div class="score-item"><span id="my-score-num">0</span><span class="score-label" id="my-score-name">You</span></div>
-      <div class="score-sep">:</div>
-      <div class="score-item"><span id="opp-score-num">0</span><span class="score-label">Opp</span></div>
+    <div class="rpg-bars" style="display:flex; justify-content:space-between; width:100%; padding:0 1rem; box-sizing:border-box;">
+      <div class="my-bars" style="width:45%">
+        <div class="bar-container" style="background:#550000; height:15px; border-radius:10px; margin-bottom:5px; border:1px solid #ff5555;">
+          <div id="my-hp-bar" style="background:#ff3333; height:100%; width:100%; border-radius:10px; transition:width 0.3s ease;"></div>
+          <div id="my-hp-text" style="position:absolute; font-size:10px; line-height:15px; width:45%; text-align:center; color:white; font-weight:bold; margin-top:-16px;">100 / 100 HP</div>
+        </div>
+        <div class="bar-container" style="background:#003366; height:10px; border-radius:10px; border:1px solid #55aaff;">
+          <div id="my-stam-bar" style="background:#3388ff; height:100%; width:100%; border-radius:10px; transition:width 0.3s ease;"></div>
+          <div id="my-stam-text" style="position:absolute; font-size:8px; line-height:10px; width:45%; text-align:center; color:white; margin-top:-11px;">30 / 30 STAM</div>
+        </div>
+      </div>
+      <div class="vs-text" style="font-weight:900; font-size:1.5rem; align-self:center;">VS</div>
+      <div class="opp-bars" style="width:45%">
+        <div class="bar-container" style="background:#550000; height:15px; border-radius:10px; margin-bottom:5px; border:1px solid #ff5555;">
+          <div id="opp-hp-bar" style="background:#ff3333; height:100%; width:100%; border-radius:10px; transition:width 0.3s ease;"></div>
+          <div id="opp-hp-text" style="position:absolute; font-size:10px; line-height:15px; width:45%; text-align:center; color:white; font-weight:bold; margin-top:-16px;">100 / 100 HP</div>
+        </div>
+        <div class="bar-container" style="background:#003366; height:10px; border-radius:10px; border:1px solid #55aaff;">
+          <div id="opp-stam-bar" style="background:#3388ff; height:100%; width:100%; border-radius:10px; transition:width 0.3s ease;"></div>
+          <div id="opp-stam-text" style="position:absolute; font-size:8px; line-height:10px; width:45%; text-align:center; color:white; margin-top:-11px;">30 / 30 STAM</div>
+        </div>
+      </div>
     </div>
-    <div class="round-info"><span id="round-label">Round 1 / 7</span></div>
   </div>
 
   <div class="table-area" id="table-area">
@@ -246,49 +263,82 @@
   </div>
 </div>
 
+<!-- ══════════ CAMPAIGN ══════════ -->
+<div id="screen-campaign" class="screen">
+  <div class="nav-bar"><button class="btn-back" data-target="screen-menu">← Back</button><h2>📖 Campaign</h2><div></div></div>
+  <div class="content-wrap" style="align-items:center; text-align:center; padding-top:2rem">
+    <div style="font-size:4rem; margin-bottom:1rem">🧙</div>
+    <h3 style="font-family:var(--font-display)">Sorcerer's Apprentice</h3>
+    <p style="color:var(--muted); margin:1rem 0 2rem">Your master has been kidnapped by a dark warlock. Fight your way through the realm to rescue him!</p>
+    <div id="campaign-stages" style="width:100%; display:flex; flex-direction:column; gap:0.75rem; max-width:400px"></div>
+    <p style="color:var(--muted); font-size:0.8rem; margin-top:1.5rem">Defeat each enemy to unlock the next stage.</p>
+    <button id="btn-campaign-play" class="btn btn-primary btn-full" style="margin-top:1rem; max-width:400px">⚔️ Fight Current Stage</button>
+  </div>
+</div>
+
 <!-- ══════════ SHOP (Armory) ══════════ -->
 <div id="screen-shop" class="screen">
   <div class="nav-bar"><button class="btn-back" data-target="screen-menu">← Back</button><h2>Armory</h2><div class="coins-pill small"><span class="coin-icon">🪙</span><span id="shop-coins">0</span></div></div>
   <div class="shop-tabs">
-    <button class="tab-btn active" data-tab="passive-perks">Passive</button>
-    <button class="tab-btn" data-tab="active-perks">Active</button>
-    <button class="tab-btn" data-tab="skins">Skins</button>
-    <button class="tab-btn" data-tab="slots">Slots</button>
+    <button class="tab-btn active" data-tab="cards">Cards</button>
+    <button class="tab-btn" data-tab="runes">Runes</button>
     <button class="tab-btn" data-tab="avatars">Avatars</button>
-    <button class="tab-btn" data-tab="rewards">🪙 FREE</button>
   </div>
   <div class="shop-content" id="shop-content"></div>
 </div>
 
-<!-- ══════════ PROFILE ══════════ -->
-<div id="screen-profile" class="screen">
-  <div class="nav-bar"><button class="btn-back" data-target="screen-menu">← Back</button><h2>Profile</h2><div></div></div>
-  <div class="content-wrap">
-    <div class="profile-hero">
-      <div class="profile-avatar-big" id="prof-avatar-big">?</div>
-      <div class="profile-name-row">
-        <h3 id="prof-username">–</h3>
-        <button id="btn-edit-nick" class="btn-icon">✏️</button>
+<!-- ══════════ GRIMOIRE (DECK BUILDER) ══════════ -->
+<div id="screen-grimoire" class="screen">
+  <div class="nav-bar"><button class="btn-back" data-target="screen-menu">← Back</button><h2>Grimoire</h2><div></div></div>
+  <div class="shop-tabs" style="margin-bottom:0; border-bottom:1px solid rgba(255,255,255,0.1)">
+    <button class="tab-btn active" data-tab="deck">Active Deck</button>
+    <button class="tab-btn" data-tab="spellbook">Spell Book</button>
+    <button class="tab-btn" data-tab="my-profile">Profile</button>
+  </div>
+  <div class="content-wrap" style="padding-top:1rem" id="grimoire-content">
+    <!-- Active Deck Tab -->
+    <div id="grim-deck-view">
+      <h3>Active Deck (Main Hand)</h3>
+      <div id="grim-deck-grid" class="cards-grid"></div>
+      <p style="color:var(--muted); font-size:0.85rem; margin-top:1rem;">These 5 cards form your opening hand.</p>
+    </div>
+    <!-- Spell Book Tab -->
+    <div id="grim-sb-view" style="display:none">
+      <h3>Spell Book (Side Deck)</h3>
+      <div id="grim-sb-grid" class="cards-grid"></div>
+      <p style="color:var(--muted); font-size:0.85rem; margin-top:1rem;">These cards can be swapped into your active hand mid-match.</p>
+      
+      <h3 style="margin-top:2rem">Rest of Collection</h3>
+      <div id="grim-col-grid" class="cards-grid"></div>
+    </div>
+    <!-- Profile Tab -->
+    <div id="grim-prof-view" style="display:none">
+      <div class="profile-hero">
+        <div class="profile-avatar-big" id="prof-avatar-big">?</div>
+        <div class="profile-name-row">
+          <h3 id="prof-username">–</h3>
+          <button id="btn-edit-nick" class="btn-icon">✏️</button>
+        </div>
+        <span id="prof-tag" class="user-tag" style="opacity:0.6;margin-top:-0.5rem">#000000</span>
+        <div class="coins-pill"><span class="coin-icon">🪙</span><span id="prof-coins">0</span></div>
       </div>
-      <span id="prof-tag" class="user-tag" style="opacity:0.6;margin-top:-0.5rem">#000000</span>
-      <div class="coins-pill"><span class="coin-icon">🪙</span><span id="prof-coins">0</span></div>
+      <div id="nick-edit-row" class="join-row" style="display:none; margin-bottom: 1rem;">
+        <input id="nick-input" type="text" maxlength="15" placeholder="New Nickname" />
+        <button id="btn-save-nick" class="btn btn-primary btn-sm">Save</button>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card"><span id="prof-wins">0</span><span>Wins</span></div>
+        <div class="stat-card"><span id="prof-losses">0</span><span>Losses</span></div>
+        <div class="stat-card" style="grid-column: span 2;"><span id="prof-games">0</span><span>Games Played</span></div>
+        <div class="stat-card"><span id="prof-hp">100</span><span>Max HP</span></div>
+        <div class="stat-card"><span id="prof-stam">30</span><span>Max Stamina</span></div>
+      </div>
+      <div class="profile-section">
+        <h4 class="section-title">Unlocked Avatars</h4>
+        <div class="avatar-row" id="prof-avatar-preview"></div>
+      </div>
+      <button id="btn-logout" class="btn btn-ghost" style="margin-top:2rem; width:100%">Change User / Logout</button>
     </div>
-    <div id="nick-edit-row" class="join-row" style="display:none; margin-bottom: 1rem;">
-      <input id="nick-input" type="text" maxlength="15" placeholder="New Nickname" />
-      <button id="btn-save-nick" class="btn btn-primary btn-sm">Save</button>
-    </div>
-    <div class="stats-grid">
-      <div class="stat-card"><span id="prof-wins">0</span><span>Wins</span></div>
-      <div class="stat-card"><span id="prof-losses">0</span><span>Losses</span></div>
-      <div class="stat-card" style="grid-column: span 2;"><span id="prof-games">0</span><span>Games Played</span></div>
-    </div>
-    <h4 class="section-title">Perk Slots: <span id="prof-slot-count">1</span> / 5</h4>
-    <div class="equipped-perks-list" id="prof-equipped-perks"></div>
-    <h4 class="section-title">Equipped Skin</h4>
-    <div class="skin-preview-row" id="prof-skin-preview" style="margin-bottom:1rem"></div>
-    <h4 class="section-title">Avatars</h4>
-    <div class="avatar-preview-row" id="prof-avatar-preview"></div>
-    <button id="btn-logout" class="btn btn-ghost btn-full" style="margin-top:2rem">Log Out</button>
   </div>
 </div>
 
@@ -380,13 +430,13 @@
       <div class="ad-sim-sub">Upgrade your experience at rps-clash.com</div>
     </div>
     <div class="ad-sim-footer">
-      <button id="btn-ad-close" class="btn btn-ghost hidden">Close & Claim 🪙 100</button>
       <p id="ad-wait-msg">Reward available in <span id="ad-timer-big">15</span> seconds...</p>
     </div>
   </div>
 </div>
 
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="shared_config.js"></script>
 <script src="game.js"></script>
 </body>
 </html>

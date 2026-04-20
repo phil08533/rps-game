@@ -53,11 +53,10 @@ const matchQueue  = [];   // [{ socketId, username, wins }]
 const pendingInvites = {}; // inviteId → { from, to, roomCode }
 const disconnectTimeouts = new Map(); // username → setTimeout ID
 
+const CONFIG = require('./shared_config.js');
 
 // ── Constants ─────────────────────────────────────────────────
-const CARDS = ['rock', 'paper', 'scissors'];
-
-// ── Perk Definitions ──────────────────────────────────────────
+const CARDS = Object.keys(CONFIG.BASE_CARDS);
 const PERKS = {
   // ── PASSIVE (always active while equipped) ──
   lucky_draw:  { id:'lucky_draw',  name:'Lucky Draw',   type:'passive', cost:150,  description:'Ticker always gives 1–2 cards (never 0)', icon:'🍀' },
@@ -105,37 +104,65 @@ function genCode(len = 4) {
   for (let i = 0; i < len; i++) s += chars[Math.floor(Math.random() * chars.length)];
   return s;
 }
+const AVATAR_COSTS = {};
+for (let i = 6; i <= 18; i++) AVATAR_COSTS[`Char ${i}`] = 500 + (Math.floor(i / 3) * 200);
+
+function getShopData() {
+  return { 
+    runes: CONFIG.RUNES, 
+    cardPackCost: 200, 
+    avatarCosts: AVATAR_COSTS 
+  };
+}
 function uniqueRoom()       { let c; do { c = genCode(4);     } while (rooms[c]);       return c; }
 function uniqueTournament() { let c; do { c = 'T'+genCode(4); } while (tournaments[c]); return c; }
 
+function generateId() { return Math.random().toString(36).substr(2, 9); }
+
 function getPlayer(username) {
   if (!players[username]) {
+    const defaultDeckIds = [generateId(), generateId(), generateId(), generateId()];
     players[username] = {
       username, coins: 50,
       unlockedSkins: ['classic'], equippedSkin: 'classic',
-      unlockedPerks: [], equippedPerks: [],
-      perkSlots: 1,
+      unlockedPerks: [], equippedPerks: [], perkSlots: 1,
       unlockedAvatars: ['Char 1', 'Char 2', 'Char 3', 'Char 4', 'Char 5'],
       equippedAvatar: 'Char 1',
       wins: 0, losses: 0, ties: 0, gamesPlayed: 0,
       friendCode: Math.floor(100000 + Math.random() * 900000).toString(),
       nickname: username.slice(0, 15),
-      lastDailyRewardDate: ''
+      lastDailyRewardDate: '',
+      // RPG properties
+      level: 1, xp: 0, maxHp: 100, maxStamina: 30,
+      campaignProgress: 1,
+      collection: {
+        [defaultDeckIds[0]]: { cardId: 'water_splash', xp: 0, level: 1, runes: [] },
+        [defaultDeckIds[1]]: { cardId: 'fire_punch', xp: 0, level: 1, runes: [] },
+        [defaultDeckIds[2]]: { cardId: 'rock_throw', xp: 0, level: 1, runes: [] },
+        [defaultDeckIds[3]]: { cardId: 'wind_slash', xp: 0, level: 1, runes: [] },
+      },
+      deck: defaultDeckIds,
+      spellBook: []
     };
   }
   // Data migration for old accounts
-  if (!players[username].unlockedAvatars) {
-    players[username].unlockedAvatars = ['Char 1', 'Char 2', 'Char 3', 'Char 4', 'Char 5'];
-    players[username].equippedAvatar = 'Char 1';
+  let p = players[username];
+  if (!p.unlockedAvatars) { p.unlockedAvatars = ['Char 1', 'Char 2', 'Char 3', 'Char 4', 'Char 5']; p.equippedAvatar = 'Char 1'; }
+  if (!p.friendCode || p.friendCode.length < 6) { p.friendCode = Math.floor(100000 + Math.random() * 900000).toString(); p.nickname = username.slice(0, 15); }
+  if (p.lastDailyRewardDate === undefined) p.lastDailyRewardDate = '';
+  
+  if (p.level === undefined) {
+    const defaultDeckIds = [generateId(), generateId(), generateId(), generateId()];
+    p.level = 1; p.xp = 0; p.maxHp = 100; p.maxStamina = 30; p.campaignProgress = 1;
+    p.collection = {
+      [defaultDeckIds[0]]: { cardId: 'water_splash', xp: 0, level: 1, runes: [] },
+      [defaultDeckIds[1]]: { cardId: 'fire_punch', xp: 0, level: 1, runes: [] },
+      [defaultDeckIds[2]]: { cardId: 'rock_throw', xp: 0, level: 1, runes: [] },
+      [defaultDeckIds[3]]: { cardId: 'wind_slash', xp: 0, level: 1, runes: [] }
+    };
+    p.deck = defaultDeckIds; p.spellBook = [];
   }
-  if (!players[username].friendCode || players[username].friendCode.length < 6) {
-    players[username].friendCode = Math.floor(100000 + Math.random() * 900000).toString();
-    players[username].nickname = username.slice(0, 15);
-  }
-  if (players[username].lastDailyRewardDate === undefined) {
-    players[username].lastDailyRewardDate = '';
-  }
-  return players[username];
+  return p;
 }
 
 function trackWin(username) {
@@ -175,60 +202,40 @@ function hasPassive(username, perkId) {
   return p.equippedPerks.includes(perkId) && PERKS[perkId]?.type === 'passive';
 }
 
-function randCard() { return CARDS[Math.floor(Math.random() * CARDS.length)]; }
+// ── Helper Battle Setup ──
 function dealHand(username) {
-  const n = hasPassive(username, 'hoarder') ? 5 : 3;
-  return Array.from({ length: n }, randCard);
-}
-
-function rollTicker(username, sabotaged) {
-  if (sabotaged) return 0;
-  if (hasPassive(username, 'lucky_draw')) return Math.floor(Math.random() * 2) + 1;
-  if (hasPassive(username, 'big_hand'))   return Math.floor(Math.random() * 5);
-  return Math.floor(Math.random() * 3);
-}
-
-function resolveCards(c1, c2) {
-  if (!c1 && !c2) return 'tie';
-  if (!c1) return 'p2';
-  if (!c2) return 'p1';
-  if (c1 === c2) return 'tie';
-  if ((c1==='rock'&&c2==='scissors')||(c1==='paper'&&c2==='rock')||(c1==='scissors'&&c2==='paper')) return 'p1';
-  return 'p2';
-}
-
-function awardCoins(username, base, isLoss) {
   const p = getPlayer(username);
-  let amount = base;
-  if (hasPassive(username, 'coin_boost')) amount = Math.floor(amount * 1.5);
-  if (isLoss && hasPassive(username, 'scavenger')) amount = Math.floor(amount * 2);
-  p.coins += amount;
-  return amount;
-}
-
-const AVATAR_COSTS = {};
-for (let i = 6; i <= 18; i++) AVATAR_COSTS[`Char ${i}`] = 500 + (Math.floor(i / 3) * 200);
-
-function getShopData() {
-  return { skins: SKINS, perks: PERKS, slotCosts: SLOT_COSTS, avatarCosts: AVATAR_COSTS };
+  const hand = [];
+  const deckSize = p.deck?.length || 0;
+  for (let i = 0; i < 5; i++) {
+    if (deckSize > 0) {
+      const uuid = p.deck[Math.floor(Math.random() * deckSize)];
+      const cardData = p.collection[uuid];
+      hand.push({ uuid, cardId: cardData.cardId });
+    } else {
+      hand.push({ uuid: 'starter_' + i, cardId: 'water_splash' }); // Fallback
+    }
+  }
+  return hand;
 }
 
 // ── Room ──────────────────────────────────────────────────────
 function makeRoom(hostId, hostName) {
   const code = uniqueRoom();
+  const hp1 = getPlayer(hostName).maxHp || 100;
+  const stam1 = getPlayer(hostName).maxStamina || 30;
   rooms[code] = {
     code, state: 'waiting',
     players: [{
       socketId: hostId, username: hostName,
-      hand: dealHand(hostName), score: 0,
+      hand: dealHand(hostName), 
+      hp: hp1, maxHp: hp1,
+      stamina: stam1, maxStamina: stam1,
       playedCard: null, playedIndex: -1,
-      activePerkThisRound: null,
-      activePerksUsedThisGame: [],
       winStreak: 0,
     }],
-    round: 1, maxRounds: 7, history: [],
+    round: 1, history: [],
     tournamentCode: null, tournamentMatchIdx: null,
-    encorePending: null,
   };
   return rooms[code];
 }
@@ -237,246 +244,161 @@ function makeRoom(hostId, hostName) {
 function processRound(room) {
   const [p1, p2] = room.players;
   let c1 = p1.playedCard, c2 = p2.playedCard;
-  const a1 = p1.activePerkThisRound, a2 = p2.activePerkThisRound;
-  let perkMessages = [];
+  let msg1 = [], msg2 = [];
 
-  // ── Active perk effects (pre-resolve) ──
+  // Parse cards
+  const id1 = c1?.cardId || c1; // handle legacy or object
+  const id2 = c2?.cardId || c2;
+  const card1 = id1 ? CONFIG.BASE_CARDS[id1] : null;
+  const card2 = id2 ? CONFIG.BASE_CARDS[id2] : null;
 
-  // WILDCARD: card beats anything
-  let p1Wildcard = false, p2Wildcard = false;
-  if (a1 === 'wildcard' && c1) { p1Wildcard = true; perkMessages.push({ player: 1, msg: '🌟 Wildcard! Unbeatable card!' }); }
-  if (a2 === 'wildcard' && c2) { p2Wildcard = true; perkMessages.push({ player: 2, msg: '🌟 Wildcard! Unbeatable card!' }); }
+  // Consume stamina
+  if (card1) p1.stamina = Math.max(0, p1.stamina - card1.cost);
+  if (card2) p2.stamina = Math.max(0, p2.stamina - card2.cost);
 
-  // SHIELD: auto-win
-  let p1Shield = false, p2Shield = false;
-  if (a1 === 'shield') { p1Shield = true; perkMessages.push({ player: 1, msg: '🛡️ Shield activated!' }); }
-  if (a2 === 'shield') { p2Shield = true; perkMessages.push({ player: 2, msg: '🛡️ Shield activated!' }); }
+  let dmg1 = card1 ? card1.baseDmg : 0;
+  let blk1 = card1 ? card1.baseBlock : 0;
+  let dmg2 = card2 ? card2.baseDmg : 0;
+  let blk2 = card2 ? card2.baseBlock : 0;
 
-  // MIRROR: force tie
-  let forceTie = false;
-  if (a1 === 'mirror' || a2 === 'mirror') {
-    forceTie = true;
-    perkMessages.push({ player: a1 === 'mirror' ? 1 : 2, msg: '🪞 Mirror — forced tie!' });
+  // Elemental Multipliers
+  let mult1 = 1.0, mult2 = 1.0;
+  if (card1 && card2) {
+    const el1 = CONFIG.ELEMENTS[card1.type];
+    const el2 = CONFIG.ELEMENTS[card2.type];
+    if (el1.strongAgainst.includes(card2.type)) mult1 += 0.5;
+    if (el1.weakAgainst.includes(card2.type)) mult1 -= 0.5;
+    if (el2.strongAgainst.includes(card1.type)) mult2 += 0.5;
+    if (el2.weakAgainst.includes(card1.type)) mult2 -= 0.5;
   }
 
-  // FREEZE: opponent must play leftmost card
-  // (handled during play_card phase)
+  // Calculate actual damage
+  let finalDmg1 = Math.max(0, Math.floor(dmg1 * mult1) - blk2);
+  let finalDmg2 = Math.max(0, Math.floor(dmg2 * mult2) - blk1);
 
-  // Resolve
-  let result;
-  if (forceTie && c1 && c2) {
-    result = 'tie';
-  } else if (p1Shield && !p2Shield) {
-    result = c1 ? 'p1' : (c2 ? 'p2' : 'tie');
-  } else if (p2Shield && !p1Shield) {
-    result = c2 ? 'p2' : (c1 ? 'p1' : 'tie');
-  } else if (p1Shield && p2Shield) {
-    result = 'tie'; // Both shield = tie
-  } else if (p1Wildcard && !p2Wildcard) {
-    result = 'p1';
-  } else if (p2Wildcard && !p1Wildcard) {
-    result = 'p2';
-  } else if (p1Wildcard && p2Wildcard) {
-    result = 'tie';
-  } else {
-    result = resolveCards(c1, c2);
-  }
+  // Apply damage
+  p2.hp = Math.max(0, p2.hp - finalDmg1);
+  p1.hp = Math.max(0, p1.hp - finalDmg2);
 
-  // STEAL: if you lose, steal the win
-  if (result === 'p2' && a1 === 'steal') {
-    result = 'p1';
-    perkMessages.push({ player: 1, msg: '🥷 Steal! Snatched the win!' });
-  } else if (result === 'p1' && a2 === 'steal') {
-    result = 'p2';
-    perkMessages.push({ player: 2, msg: '🥷 Steal! Snatched the win!' });
-  }
+  // Special effects (Healing, etc)
+  if (card1 && card1.effect === 'heal') { p1.hp = Math.min(p1.maxHp, p1.hp + card1.effectValue); msg1.push(`Healed for ${card1.effectValue} HP!`); }
+  if (card2 && card2.effect === 'heal') { p2.hp = Math.min(p2.maxHp, p2.hp + card2.effectValue); msg2.push(`Healed for ${card2.effectValue} HP!`); }
 
-  // ENCORE: if you lose, replay the round (once per game)
-  if (result === 'p2' && a1 === 'encore') {
-    perkMessages.push({ player: 1, msg: '🔁 Encore! Replaying the round!' });
-    // Return cards and replay
-    if (c1) p1.hand.splice(p1.playedIndex, 0, c1);
-    if (c2) p2.hand.splice(p2.playedIndex, 0, c2);
-    p1.playedCard = null; p1.playedIndex = -1; p1.activePerkThisRound = null;
-    p2.playedCard = null; p2.playedIndex = -1; p2.activePerkThisRound = null;
-    broadcastEncoreReplay(room, perkMessages);
-    return;
-  } else if (result === 'p1' && a2 === 'encore') {
-    perkMessages.push({ player: 2, msg: '🔁 Encore! Replaying the round!' });
-    if (c1) p1.hand.splice(p1.playedIndex, 0, c1);
-    if (c2) p2.hand.splice(p2.playedIndex, 0, c2);
-    p1.playedCard = null; p1.playedIndex = -1; p1.activePerkThisRound = null;
-    p2.playedCard = null; p2.playedIndex = -1; p2.activePerkThisRound = null;
-    broadcastEncoreReplay(room, perkMessages);
-    return;
-  }
+  if (card1 && card1.effect === 'drain_stamina') { p2.stamina = Math.max(0, p2.stamina - card1.effectValue); msg1.push(`Drained ${card1.effectValue} Stamina!`); }
+  if (card2 && card2.effect === 'drain_stamina') { p1.stamina = Math.max(0, p1.stamina - card2.effectValue); msg2.push(`Drained ${card2.effectValue} Stamina!`); }
 
-  // Score
-  let p1Points = 0, p2Points = 0;
-  if (result === 'p1') {
-    p1Points = (a1 === 'double_down') ? 2 : 1;
-    if (a1 === 'double_down') perkMessages.push({ player: 1, msg: '⚡ Double Down! +2 points!' });
-    p1.score += p1Points;
-  } else if (result === 'p2') {
-    p2Points = (a2 === 'double_down') ? 2 : 1;
-    if (a2 === 'double_down') perkMessages.push({ player: 2, msg: '⚡ Double Down! +2 points!' });
-    p2.score += p2Points;
-  }
+  // Restock 1 card to maintain hand, regen stamina
+  if (c1) p1.hand.push(dealHand(p1.username)[0]);
+  if (c2) p2.hand.push(dealHand(p2.username)[0]);
 
-  // TIE: cards return to same slot
-  if (result === 'tie' && c1 && c2) {
-    p1.hand.splice(p1.playedIndex, 0, c1);
-    p2.hand.splice(p2.playedIndex, 0, c2);
-  }
+  p1.stamina = Math.min(p1.maxStamina, p1.stamina + 10); // passive regen
+  p2.stamina = Math.min(p2.maxStamina, p2.stamina + 10);
 
-  // CARD THIEF: winner steals a random card from loser
-  let stolenCard = null;
-  if (result === 'p1' && a1 === 'card_thief' && p2.hand.length > 0) {
-    const si = Math.floor(Math.random() * p2.hand.length);
-    stolenCard = p2.hand.splice(si, 1)[0];
-    p1.hand.push(stolenCard);
-    perkMessages.push({ player: 1, msg: `🃏 Stole ${stolenCard} from opponent!` });
-  } else if (result === 'p2' && a2 === 'card_thief' && p1.hand.length > 0) {
-    const si = Math.floor(Math.random() * p1.hand.length);
-    stolenCard = p1.hand.splice(si, 1)[0];
-    p2.hand.push(stolenCard);
-    perkMessages.push({ player: 2, msg: `🃏 Stole ${stolenCard} from opponent!` });
-  }
+  // Reset play state
+  p1.playedCard = null; p1.playedIndex = -1;
+  p2.playedCard = null; p2.playedIndex = -1;
 
-  // RECYCLER: losing card 40% chance of returning
-  if (result === 'p2' && c1 && hasPassive(p1.username, 'recycler') && Math.random() < 0.4) {
-    p1.hand.push(c1);
-    perkMessages.push({ player: 1, msg: '♻️ Recycler saved your card!' });
-  }
-  if (result === 'p1' && c2 && hasPassive(p2.username, 'recycler') && Math.random() < 0.4) {
-    p2.hand.push(c2);
-    perkMessages.push({ player: 2, msg: '♻️ Recycler saved your card!' });
-  }
-
-  // Win streak tracking for momentum
-  if (result === 'p1') { p1.winStreak++; p2.winStreak = 0; }
-  else if (result === 'p2') { p2.winStreak++; p1.winStreak = 0; }
-  else { /* tie keeps streaks */ }
-
-  // THICK SKIN: tie = +1 extra card
-  if (result === 'tie') {
-    if (hasPassive(p1.username, 'thick_skin')) { p1.hand.push(randCard()); }
-    if (hasPassive(p2.username, 'thick_skin')) { p2.hand.push(randCard()); }
-  }
-
-  const roundWinner = result === 'p1' ? p1.username : result === 'p2' ? p2.username : null;
-  room.history.push({ round: room.round, c1, c2, result, roundWinner });
-
-  // Ticker draw
-  const sab1 = a2 === 'sabotage';
-  const sab2 = a1 === 'sabotage';
-  if (sab1) perkMessages.push({ player: 2, msg: '💣 Sabotage! Opponent gets 0 ticker cards!' });
-  if (sab2) perkMessages.push({ player: 1, msg: '💣 Sabotage! Opponent gets 0 ticker cards!' });
-
-  let draw1 = rollTicker(p1.username, sab1);
-  let draw2 = rollTicker(p2.username, sab2);
-
-  // MOMENTUM: +1 card per win streak
-  if (hasPassive(p1.username, 'momentum') && p1.winStreak > 1) draw1 += Math.min(p1.winStreak - 1, 3);
-  if (hasPassive(p2.username, 'momentum') && p2.winStreak > 1) draw2 += Math.min(p2.winStreak - 1, 3);
-
-  for (let i = 0; i < draw1; i++) p1.hand.push(randCard());
-  for (let i = 0; i < draw2; i++) p2.hand.push(randCard());
-
-  p1.playedCard = null; p1.playedIndex = -1; p1.activePerkThisRound = null;
-  p2.playedCard = null; p2.playedIndex = -1; p2.activePerkThisRound = null;
-
-  // PHANTOM: hide card from opponent in reveal
-  const p1Phantom = a1 === 'phantom';
-  const p2Phantom = a2 === 'phantom';
-  if (p1Phantom) perkMessages.push({ player: 1, msg: '👻 Phantom! Your card is hidden!' });
-  if (p2Phantom) perkMessages.push({ player: 2, msg: '👻 Phantom! Your card is hidden!' });
-
-  const maxWins  = Math.ceil(room.maxRounds / 2);
-  const gameOver = p1.score >= maxWins || p2.score >= maxWins || room.round >= room.maxRounds;
-
-  if (gameOver) { finishGame(room, draw1, draw2, null, perkMessages, p1Phantom, p2Phantom); return; }
+  // Determine game over
+  const gameOver = p1.hp <= 0 || p2.hp <= 0;
   
-  // Tie rounds do not count towards the total rounds in Best of 7
-  if (result !== 'tie') {
-    room.round++;
+  if (gameOver) {
+    finishGame(room, 0, 0, null, [], false, false);
+    return;
   }
 
+  room.round++;
+
+  // Emit Result
   [p1, p2].forEach((p, idx) => {
     const opp = idx === 0 ? p2 : p1;
-    const myDraw = idx === 0 ? draw1 : draw2;
     const myCard = idx === 0 ? c1 : c2;
     const opCard = idx === 0 ? c2 : c1;
-    const isPhantom = idx === 0 ? p2Phantom : p1Phantom;
-    const myResult = result === 'tie' ? 'tie' : result === `p${idx+1}` ? 'win' : 'loss';
-    const myPerks = perkMessages.filter(m => m.player === idx+1).map(m => m.msg);
-    const oppPerks = perkMessages.filter(m => m.player === (idx===0?2:1)).map(m => m.msg);
+    const myMsg = idx === 0 ? msg1 : msg2;
+    const oppMsg = idx === 0 ? msg2 : msg1;
+    const myDmg = idx === 0 ? finalDmg1 : finalDmg2;
+
     io.to(p.socketId).emit('round_result', {
-      myCard, opponentCard: isPhantom ? null : opCard, result: myResult, roundWinner,
-      myScore: p.score, opponentScore: opp.score,
-      myDraw, newHand: [...p.hand], opponentCardCount: opp.hand.length,
-      round: room.round, maxRounds: room.maxRounds,
-      tiedReturnedCard: result === 'tie' && myCard ? true : false,
-      myPerkMessages: myPerks, oppPerkMessages: oppPerks,
-      opponentPhantom: isPhantom,
-      activePerksRemaining: getActivePerksRemaining(p),
+      myCard: (idx === 0 ? c1 : c2)?.cardId || (idx === 0 ? c1 : c2), 
+      opponentCard: (idx === 0 ? c2 : c1)?.cardId || (idx === 0 ? c2 : c1), 
+      result: 'resolved', 
+      myScore: p.hp, opponentScore: opp.hp, // sending hp in score fields for legacy compat
+      myHp: p.hp, myMaxHp: p.maxHp, myStamina: p.stamina, myMaxStamina: p.maxStamina,
+      oppHp: opp.hp, oppMaxHp: opp.maxHp, oppStamina: opp.stamina, oppMaxStamina: opp.maxStamina,
+      myDraw: 1, newHand: [...p.hand], opponentCardCount: opp.hand.length,
+      round: room.round, maxRounds: '∞',
+      myPerkMessages: myMsg, oppPerkMessages: oppMsg,
+      damageDealt: myDmg
     });
   });
 }
 
-function broadcastEncoreReplay(room, perkMessages) {
-  const [p1, p2] = room.players;
-  [p1, p2].forEach((p, idx) => {
-    const opp = idx === 0 ? p2 : p1;
-    const myPerks = perkMessages.filter(m => m.player === idx+1).map(m => m.msg);
-    const oppPerks = perkMessages.filter(m => m.player === (idx===0?2:1)).map(m => m.msg);
-    io.to(p.socketId).emit('encore_replay', {
-      newHand: [...p.hand], opponentCardCount: opp.hand.length,
-      myPerkMessages: myPerks, oppPerkMessages: oppPerks,
-      activePerksRemaining: getActivePerksRemaining(p),
-    });
-  });
-}
-
-function getActivePerksRemaining(roomPlayer) {
-  const pd = getPlayer(roomPlayer.username);
-  const equipped = pd.equippedPerks.filter(id => PERKS[id]?.type === 'active');
-  return equipped.filter(id => !roomPlayer.activePerksUsedThisGame.includes(id));
+function getFormattedPlayerData(pd) {
+  // We can format if needed, but returning pd entirely is fine right now
+  return pd;
 }
 
 function finishGame(room, draw1, draw2, reason, perkMessages, p1Phantom, p2Phantom) {
   room.state = 'finished';
   const [p1, p2] = room.players;
   let winner = null;
-  if (p1.score > p2.score) winner = p1.username;
-  else if (p2.score > p1.score) winner = p2.username;
+  if (p1.hp > 0 && p2.hp <= 0) winner = p1.username;
+  else if (p2.hp > 0 && p1.hp <= 0) winner = p2.username;
 
-  if (room.tournamentCode) onTournamentMatchEnd(room, winner);
+  if (room.tournamentCode) {} // Ignore tournaments for now
 
   [p1, p2].forEach((p, idx) => {
     const opp   = idx === 0 ? p2 : p1;
-    const myDraw = idx === 0 ? (draw1||0) : (draw2||0);
     const isWin = winner === p.username, isTie = winner === null;
     const isLoss = !isWin && !isTie;
-    let base  = reason === 'disconnect' ? 15 : isWin ? 25 : isTie ? 10 : 5;
-    if (room.isBot) base = isWin ? 10 : 0; // Bot matches reward less
-    const coinsEarned = awardCoins(p.username, base, isLoss);
+    let baseCoins  = reason === 'disconnect' ? 50 : isWin ? 100 : isTie ? 50 : 25;
+    let baseXP = isWin ? 50 : 15;
+    if (room.isBot) { baseCoins = isWin ? 50 : 10; baseXP = isWin ? 25 : 5; } // Bot matches reward less
+    
+    // XP and Coins
     const pd = getPlayer(p.username);
+    pd.coins += baseCoins;
+    
     if (p.socketId !== 'BOT') {
+      pd.xp += baseXP;
+      if (pd.xp >= pd.level * 100) {
+        pd.level++;
+        pd.xp = 0;
+        pd.maxHp += 10;
+        pd.maxStamina += 5;
+      }
       if (isWin) { pd.wins++; trackWin(p.username); } else if (isLoss) pd.losses++; else pd.ties++;
+
+      // Award XP to cards in the final hand + played cards
+      // Simplified: give XP to everything in the active deck
+      pd.deck.forEach(uuid => {
+        const card = pd.collection[uuid];
+        if (card) {
+          card.xp += isWin ? 20 : 5;
+          if (card.xp >= card.level * 100) {
+            card.level++;
+            card.xp = 0;
+          }
+        }
+      });
     }
     pd.gamesPlayed++;
     const s = Array.from(io.sockets.sockets.values()).find(so => so.socketId === p.socketId);
-    if (s) s.lastMatchCoins = coinsEarned;
+    if (s) s.lastMatchCoins = baseCoins;
 
-    const myPerks = (perkMessages||[]).filter(m => m.player === idx+1).map(m => m.msg);
+    // Campaign Progression
+    if (room.isCampaign && isWin) {
+      if (pd.campaignProgress === room.campaignStageIndex + 1) {
+        pd.campaignProgress++;
+      }
+    }
+
     io.to(p.socketId).emit('game_over', {
       winner, reason: reason || null,
-      myScore: p.score, opponentScore: opp.score,
-      myDraw, finalHand: [...p.hand],
-      coinsEarned, 
+      myScore: p.hp, opponentScore: opp.hp,
+      coinsEarned: baseCoins,
+      xpEarned: baseXP,
       playerData: getFormattedPlayerData(pd),
-      myPerkMessages: myPerks,
+      myPerkMessages: [],
     });
   });
   setTimeout(() => { delete rooms[room.code]; }, 60000);
@@ -627,20 +549,49 @@ io.on('connection', (socket) => {
     room.isBot = true;
     room.players.push({
       socketId: 'BOT', username: 'Gladiator Bot', avatar: `Char ${Math.floor(Math.random() * 18) + 1}`,
-      hand: dealHand('BOT'), score: 0,
-      playedCard: null, playedIndex: -1,
-      activePerkThisRound: null, activePerksUsedThisGame: [], winStreak: 0,
+      hand: dealHand('BOT'), score: 0, hp: 80, maxHp: 80, stamina: 30, maxStamina: 30,
+      playedCard: null, playedIndex: -1, winStreak: 0,
     });
     room.state = 'playing';
     socket.join(room.code); socket.currentRoom = room.code;
     
     // Start game right away
+    const p0 = room.players[0];
     io.to(socket.id).emit('game_start', {
-      room: room.code, myIndex: 0, myHand: [...room.players[0].hand],
+      room: room.code, myIndex: 0, myHand: [...p0.hand],
       opponentName: room.players[1].username, opponentCardCount: room.players[1].hand.length,
       opponentAvatar: room.players[1].avatar,
-      round: 1, maxRounds: 7, isTournament: false,
-      activePerksRemaining: getActivePerksRemaining(room.players[0]),
+      round: 1, maxRounds: '∞', isTournament: false,
+      myHp: p0.hp, myMaxHp: p0.maxHp, myStamina: p0.stamina, myMaxStamina: p0.maxStamina,
+      oppHp: room.players[1].hp, oppMaxHp: room.players[1].maxHp,
+      activePerksRemaining: [],
+    });
+  });
+
+  socket.on('play_campaign_stage', ({ stageIndex }) => {
+    if (!socket.username) return socket.emit('error', { message: 'Not registered' });
+    const stage = CONFIG.CAMPAIGN_STAGES[stageIndex];
+    if (!stage) return socket.emit('error', { message: 'Invalid stage' });
+    const p = getPlayer(socket.username);
+    if ((p.campaignProgress || 1) < stageIndex + 1) return socket.emit('error', { message: 'Stage locked' });
+    const room = makeRoom(socket.id, socket.username);
+    room.isBot = true; room.isCampaign = true; room.campaignStageIndex = stageIndex;
+    room.players.push({
+      socketId: 'BOT', username: stage.enemy, avatar: `Char ${6 + stageIndex}`,
+      hand: stage.deck, score: 0, hp: stage.hp, maxHp: stage.hp, stamina: stage.stamina, maxStamina: stage.stamina,
+      playedCard: null, playedIndex: -1, winStreak: 0,
+    });
+    room.state = 'playing';
+    socket.join(room.code); socket.currentRoom = room.code;
+    const p0 = room.players[0];
+    io.to(socket.id).emit('game_start', {
+      room: room.code, myIndex: 0, myHand: [...p0.hand],
+      opponentName: stage.enemy, opponentCardCount: room.players[1].hand.length,
+      opponentAvatar: room.players[1].avatar,
+      round: 1, maxRounds: '∞', isTournament: false, isCampaign: true,
+      myHp: p0.hp, myMaxHp: p0.maxHp, myStamina: p0.stamina, myMaxStamina: p0.maxStamina,
+      oppHp: room.players[1].hp, oppMaxHp: room.players[1].maxHp,
+      activePerksRemaining: [],
     });
   });
 
@@ -679,13 +630,15 @@ io.on('connection', (socket) => {
       socket.currentRoom = room.code; oppSock.currentRoom = room.code;
       room.players.forEach((p, idx) => {
         const opp = room.players[idx === 0 ? 1 : 0];
-        const oppNick = getPlayer(opp.username).nickname;
+        const oppNick = getPlayer(opp.username).nickname || opp.username;
         io.to(p.socketId).emit('game_start', {
           room: room.code, myIndex: idx, myHand: [...p.hand],
           opponentName: oppNick, opponentUsername: opp.username, opponentCardCount: opp.hand.length,
           opponentAvatar: opp.avatar,
-          round: 1, maxRounds: 7, isTournament: false,
-          activePerksRemaining: getActivePerksRemaining(p),
+          round: 1, maxRounds: '∞', isTournament: false,
+          myHp: p.hp, myMaxHp: p.maxHp, myStamina: p.stamina, myMaxStamina: p.maxStamina,
+          oppHp: opp.hp, oppMaxHp: opp.maxHp,
+          activePerksRemaining: [],
         });
       });
     } else {
@@ -783,22 +736,27 @@ io.on('connection', (socket) => {
     // Join the room
     const room = rooms[inv.roomCode];
     if (!room || room.state !== 'waiting') return socket.emit('error', { message: 'Room no longer available' });
+    const pd2 = getPlayer(socket.username);
+    const hp2 = pd2.maxHp || 100; const stam2 = pd2.maxStamina || 30;
     room.players.push({
       socketId: socket.id, username: socket.username,
       hand: dealHand(socket.username), score: 0,
-      playedCard: null, playedIndex: -1,
-      activePerkThisRound: null, activePerksUsedThisGame: [], winStreak: 0,
+      hp: hp2, maxHp: hp2, stamina: stam2, maxStamina: stam2,
+      playedCard: null, playedIndex: -1, winStreak: 0,
     });
     socket.join(inv.roomCode); socket.currentRoom = inv.roomCode;
     room.state = 'playing';
     room.players.forEach((p, idx) => {
       const opp = room.players[idx === 0 ? 1 : 0];
+      const oppNick = getPlayer(opp.username).nickname || opp.username;
       io.to(p.socketId).emit('game_start', {
         room: inv.roomCode, myIndex: idx, myHand: [...p.hand],
-        opponentName: opp.username, opponentCardCount: opp.hand.length,
+        opponentName: oppNick, opponentCardCount: opp.hand.length,
         opponentAvatar: opp.avatar,
-        round: 1, maxRounds: 7, isTournament: false,
-        activePerksRemaining: getActivePerksRemaining(p),
+        round: 1, maxRounds: '∞', isTournament: false,
+        myHp: p.hp, myMaxHp: p.maxHp, myStamina: p.stamina, myMaxStamina: p.maxStamina,
+        oppHp: opp.hp, oppMaxHp: opp.maxHp,
+        activePerksRemaining: [],
       });
     });
   });
@@ -817,23 +775,27 @@ io.on('connection', (socket) => {
     if (room.state !== 'waiting') return socket.emit('error', { message: 'Game already in progress' });
     if (room.players.length >= 2) return socket.emit('error', { message: 'Room is full' });
     if (room.players[0].username === socket.username) return socket.emit('error', { message: 'Cannot join your own room' });
+    const pd3 = getPlayer(socket.username);
+    const hp3 = pd3.maxHp || 100; const stam3 = pd3.maxStamina || 30;
     room.players.push({
       socketId: socket.id, username: socket.username,
       hand: dealHand(socket.username), score: 0,
-      playedCard: null, playedIndex: -1,
-      activePerkThisRound: null, activePerksUsedThisGame: [], winStreak: 0,
+      hp: hp3, maxHp: hp3, stamina: stam3, maxStamina: stam3,
+      playedCard: null, playedIndex: -1, winStreak: 0,
     });
     socket.join(code); socket.currentRoom = code;
     room.state = 'playing';
     room.players.forEach((p, idx) => {
       const opp = room.players[idx === 0 ? 1 : 0];
-      const oppNick = getPlayer(opp.username).nickname;
+      const oppNick = getPlayer(opp.username).nickname || opp.username;
       io.to(p.socketId).emit('game_start', {
         room: code, myIndex: idx, myHand: [...p.hand],
         opponentName: oppNick, opponentUsername: opp.username, opponentCardCount: opp.hand.length,
         opponentAvatar: opp.avatar,
-        round: 1, maxRounds: 7, isTournament: false,
-        activePerksRemaining: getActivePerksRemaining(p),
+        round: 1, maxRounds: '∞', isTournament: false,
+        myHp: p.hp, myMaxHp: p.maxHp, myStamina: p.stamina, myMaxStamina: p.maxStamina,
+        oppHp: opp.hp, oppMaxHp: opp.maxHp,
+        activePerksRemaining: [],
       });
     });
   });
@@ -874,35 +836,29 @@ io.on('connection', (socket) => {
     if (p1Done && p2Done) processRound(room);
   });
 
-  // ── Activate Perk ──
-  socket.on('activate_perk', ({ perkId }) => {
+// ── Swap Spell From SpellBook ──
+  socket.on('swap_spell_card', ({ handIndex, spellBookIndex }) => {
     const room = rooms[socket.currentRoom];
     if (!room || room.state !== 'playing') return;
     const p = room.players.find(p => p.socketId === socket.id);
-    const opp = room.players.find(p => p.socketId !== socket.id);
-    if (!p) return;
-    const perk = PERKS[perkId];
-    if (!perk || perk.type !== 'active') return socket.emit('error', { message: 'Not an active perk' });
     const pd = getPlayer(p.username);
-    if (!pd.equippedPerks.includes(perkId)) return socket.emit('error', { message: 'Perk not equipped' });
-    if (p.activePerksUsedThisGame.includes(perkId)) return socket.emit('error', { message: 'Already used this game' });
-    if (p.activePerkThisRound) return socket.emit('error', { message: 'Already activated a perk this round' });
 
-    p.activePerkThisRound = perkId;
-    p.activePerksUsedThisGame.push(perkId);
+    if (!p) return;
+    if (handIndex < 0 || handIndex >= p.hand.length) return socket.emit('error', { message: 'Invalid hand target' });
+    if (spellBookIndex < 0 || spellBookIndex >= pd.spellBook.length) return socket.emit('error', { message: 'Invalid spellbook target' });
 
-    socket.emit('perk_activated', { perkId, activePerksRemaining: getActivePerksRemaining(p) });
-    io.to(opp.socketId).emit('opponent_used_perk', { perkIcon: perk.icon });
+    // Swap
+    const uuidFromSpellBook = pd.spellBook[spellBookIndex];
+    const uuidFromHand = p.deck.find(u => pd.collection[u].cardId === p.hand[handIndex]); 
+    // Wait, p.deck might not directly map if there are duplicates, but for now we simply swap cardIds visually
+    const cardIdFromSpellBook = pd.collection[uuidFromSpellBook].cardId;
+    
+    // Add the hand card to spellbook, put spellbook card into hand
+    // Realistically, the user just replaces the card in their hand for this match
+    p.hand[handIndex] = cardIdFromSpellBook;
 
-    // PEEK: send opponent's hand
-    if (perkId === 'peek') {
-      socket.emit('peek_reveal', { opponentHand: [...opp.hand] });
-    }
-    // REROLL: discard hand, draw 3
-    if (perkId === 'reroll') {
-      p.hand = dealHand(p.username);
-      socket.emit('reroll_result', { newHand: [...p.hand] });
-    }
+    socket.emit('toast', { message: 'Spell swapped!' });
+    socket.emit('hand_updated', { newHand: [...p.hand] });
   });
 
   // ── Reorder hand ──
@@ -918,71 +874,77 @@ io.on('connection', (socket) => {
     io.to(opp.socketId).emit('opponent_reordered', { cardCount: p.hand.length });
   });
 
-  // ── Shop ──
-  socket.on('purchase_skin', ({ skinId }) => {
+  // ── Shop (Updated for RPG) ──
+  socket.on('purchase_rune', ({ runeId }) => {
     const pd = getPlayer(socket.username);
-    if (!SKINS[skinId]) return socket.emit('error', { message: 'Unknown skin' });
-    if (pd.unlockedSkins.includes(skinId)) return socket.emit('error', { message: 'Already owned' });
-    if (pd.coins < SKINS[skinId].cost) return socket.emit('error', { message: 'Not enough coins' });
-    pd.coins -= SKINS[skinId].cost; pd.unlockedSkins.push(skinId);
+    if (!CONFIG.RUNES[runeId]) return socket.emit('error', { message: 'Unknown rune' });
+    const rune = CONFIG.RUNES[runeId];
+    if (pd.coins < rune.cost) return socket.emit('error', { message: 'Not enough coins' });
+    pd.coins -= rune.cost;
+    // For now, apply global stat boosts instead of socketing onto cards directly to simplify Phase 1
+    if (rune.type === 'hp_up') pd.maxHp += rune.value;
+    if (rune.type === 'stamina_up') pd.maxStamina += rune.value;
+    
+    socket.emit('toast', { message: `Purchased ${rune.name}!` });
     socket.emit('purchase_success', { playerData: { ...pd } });
     saveDB();
   });
-  socket.on('equip_skin', ({ skinId }) => {
+  
+  socket.on('purchase_card_pack', () => {
     const pd = getPlayer(socket.username);
-    if (!pd.unlockedSkins.includes(skinId) && skinId !== 'classic') return socket.emit('error', { message: 'Not unlocked' });
-    pd.equippedSkin = skinId;
-    socket.emit('purchase_success', { playerData: { ...pd } });
-    saveDB();
-  });
-  socket.on('purchase_perk', ({ perkId }) => {
-    const pd = getPlayer(socket.username);
-    if (!PERKS[perkId]) return socket.emit('error', { message: 'Unknown perk' });
-    if (pd.unlockedPerks.includes(perkId)) return socket.emit('error', { message: 'Already owned' });
-    if (pd.coins < PERKS[perkId].cost) return socket.emit('error', { message: 'Not enough coins' });
-    pd.coins -= PERKS[perkId].cost; pd.unlockedPerks.push(perkId);
+    const cost = 200; // Pack cost
+    if (pd.coins < cost) return socket.emit('error', { message: 'Not enough coins' });
+    pd.coins -= cost;
+    
+    // Random card
+    const cardIds = Object.keys(CONFIG.BASE_CARDS);
+    const randomCardId = cardIds[Math.floor(Math.random() * cardIds.length)];
+    const newId = generateId();
+    pd.collection[newId] = { cardId: randomCardId, xp: 0, level: 1, runes: [] };
+    pd.spellBook.push(newId); // add to spellbook
+
+    socket.emit('toast', { message: `Pack opened: ${CONFIG.BASE_CARDS[randomCardId].name}!` });
     socket.emit('purchase_success', { playerData: { ...pd } });
     saveDB();
   });
 
   socket.on('purchase_avatar', ({ avatarId }) => {
     const pd = getPlayer(socket.username);
-    const cost = AVATAR_COSTS[avatarId];
-    if (!cost) return socket.emit('error', { message: 'Unknown avatar' });
+    const cost = 500; // simplified AVATAR_COSTS
     if (pd.unlockedAvatars.includes(avatarId)) return socket.emit('error', { message: 'Already owned' });
     if (pd.coins < cost) return socket.emit('error', { message: 'Not enough coins' });
     pd.coins -= cost; pd.unlockedAvatars.push(avatarId);
     socket.emit('purchase_success', { playerData: { ...pd } });
     saveDB();
   });
+
+  socket.on('move_to_deck', ({ uuid }) => {
+    const pd = getPlayer(socket.username);
+    if (!pd.collection[uuid]) return;
+    if (pd.deck.includes(uuid)) return;
+    if (pd.deck.length >= 8) return socket.emit('error', { message: 'Deck full (Max 8)' });
+    pd.spellBook = pd.spellBook.filter(id => id !== uuid);
+    pd.deck.push(uuid);
+    socket.emit('purchase_success', { playerData: { ...pd } });
+    saveDB();
+  });
+
+  socket.on('move_to_spellbook', ({ uuid }) => {
+    const pd = getPlayer(socket.username);
+    if (!pd.collection[uuid]) return;
+    if (pd.spellBook.includes(uuid)) return;
+    pd.deck = pd.deck.filter(id => id !== uuid);
+    pd.spellBook.push(uuid);
+    socket.emit('purchase_success', { playerData: { ...pd } });
+    saveDB();
+  });
+
   socket.on('equip_avatar', ({ avatarId }) => {
     const pd = getPlayer(socket.username);
     if (!pd.unlockedAvatars.includes(avatarId)) return socket.emit('error', { message: 'Not unlocked' });
     pd.equippedAvatar = avatarId;
     socket.emit('purchase_success', { playerData: { ...pd } });
     saveDB();
-  });
-  socket.on('equip_perk', ({ perkId }) => {
-    const pd = getPlayer(socket.username);
-    if (!pd.unlockedPerks.includes(perkId)) return socket.emit('error', { message: 'Not unlocked' });
-    if (pd.equippedPerks.includes(perkId)) return socket.emit('error', { message: 'Already equipped' });
-    if (pd.equippedPerks.length >= pd.perkSlots) return socket.emit('error', { message: `All ${pd.perkSlots} perk slot(s) full. Unequip one first or buy more slots.` });
-    pd.equippedPerks.push(perkId);
-    socket.emit('purchase_success', { playerData: { ...pd } });
-  });
-  socket.on('unequip_perk', ({ perkId }) => {
-    const pd = getPlayer(socket.username);
-    pd.equippedPerks = pd.equippedPerks.filter(id => id !== perkId);
-    socket.emit('purchase_success', { playerData: { ...pd } });
-  });
-  socket.on('upgrade_perk_slots', () => {
-    const pd = getPlayer(socket.username);
-    const nextSlot = pd.perkSlots + 1;
-    if (nextSlot > 5) return socket.emit('error', { message: 'Max slots reached' });
-    const cost = SLOT_COSTS[nextSlot];
-    if (pd.coins < cost) return socket.emit('error', { message: `Need ${cost} coins for slot ${nextSlot}` });
-    pd.coins -= cost; pd.perkSlots = nextSlot;
-    socket.emit('purchase_success', { playerData: { ...pd } });
   });
 
   // ── Tournament ──

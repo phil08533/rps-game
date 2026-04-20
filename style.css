@@ -427,6 +427,16 @@ input:focus{border-color:var(--primary)}
 .skin-preview-row{display:flex;gap:.55rem;justify-content:center;flex-wrap:wrap}
 .skin-dot{width:40px;height:40px;border-radius:10px;border:2px solid transparent;display:flex;align-items:center;justify-content:center;font-size:1.2rem}
 
+/* ── Grimoire / Cards Grid ────────────────────────────────────────── */
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:0.75rem;padding:0.5rem 0;justify-items:center;}
+/* For the active deck, limit it to 5 columns */
+#grim-deck-grid{grid-template-columns:repeat(5,1fr);}
+
+.game-card{position:relative;width:80px;height:120px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:all .2s;cursor:pointer;overflow:hidden;}
+.game-card:hover .card-actions-overlay{opacity:1;pointer-events:all;}
+.card-actions-overlay{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;z-index:2;}
+.btn-xs{padding:0.25rem 0.5rem;font-size:0.7rem;border-radius:4px;font-weight:700;text-transform:uppercase;}
+
 /* ── Leaderboard ──────────────────────────────────────────────── */
 .lb-tabs{display:flex;gap:.5rem;padding:0 1.25rem;border-bottom:1px solid var(--border)}
 .lb-tab{flex:1;padding:.7rem .3rem;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .2s}
