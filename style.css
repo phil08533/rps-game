@@ -256,6 +256,8 @@ body:has(#screen-game.active) .fire-particles{display:block}
 .lobby-wait{display:flex;flex-direction:column;align-items:center;gap:.75rem;margin-top:1.5rem;color:var(--muted)}
 .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.online-pill{display:flex;align-items:center;gap:.45rem;justify-content:center;color:var(--muted);font-size:.82rem;margin-bottom:.75rem}
+.online-dot{width:8px;height:8px;border-radius:50%;background:#4ade80;box-shadow:0 0 6px #4ade80;flex-shrink:0}
 .divider-or{display:flex;align-items:center;gap:1rem;color:var(--muted);font-size:.85rem}
 .divider-or::before,.divider-or::after{content:'';flex:1;height:1px;background:var(--border)}
 .join-row{display:flex;gap:.75rem}
@@ -535,13 +537,13 @@ body:has(#screen-game.active) .fire-particles{display:block}
 .tab-btn{flex:1;padding:.8rem .5rem;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;min-width:0}
 .tab-btn.active{color:var(--text);border-bottom-color:var(--primary)}
 .shop-content{flex:1;overflow-y:auto;padding:1rem 1.25rem;display:flex;flex-direction:column;gap:.65rem;max-width:480px;width:100%;margin:0 auto}
-.shop-item{display:flex;align-items:center;gap:.85rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;transition:all .2s}
-.shop-item .si-icon{font-size:1.8rem;width:40px;text-align:center;flex-shrink:0}
+.shop-item{display:flex;align-items:flex-start;gap:.85rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;transition:all .2s}
+.shop-item .si-icon{font-size:1.8rem;width:40px;text-align:center;flex-shrink:0;padding-top:.1rem}
 .shop-item .si-info{flex:1;min-width:0}
 .shop-item .si-name{font-weight:700;font-size:.95rem}
-.shop-item .si-desc{font-size:.75rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shop-item .si-desc{font-size:.75rem;color:var(--muted);line-height:1.4;margin-top:.15rem}
 .shop-item .si-type-badge{font-size:.65rem;color:var(--primary2);text-transform:uppercase;font-weight:700;letter-spacing:.04em}
-.shop-item .si-action{flex-shrink:0}
+.shop-item .si-action{flex-shrink:0;padding-top:.1rem}
 .btn-buy{background:linear-gradient(135deg,var(--primary),var(--primary2));color:#fff;border:none;border-radius:var(--radius-sm);padding:.45rem .8rem;font-family:inherit;font-weight:700;font-size:.8rem;cursor:pointer}
 .btn-buy:disabled{background:var(--surface);color:var(--muted);cursor:default}
 .badge-owned{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.3);border-radius:999px;padding:.3rem .7rem;font-size:.75rem;font-weight:700}
@@ -572,6 +574,16 @@ body:has(#screen-game.active) .fire-particles{display:block}
 .equipped-perk-item .epi-type{font-size:.65rem;color:var(--primary2);text-transform:uppercase;font-weight:700}
 .skin-preview-row{display:flex;gap:.55rem;justify-content:center;flex-wrap:wrap}
 .skin-dot{width:40px;height:40px;border-radius:10px;border:2px solid transparent;display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+
+/* ── Grimoire / Cards Grid ────────────────────────────────────────── */
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:0.75rem;padding:0.5rem 0;justify-items:center;}
+/* For the active deck, limit it to 5 columns */
+#grim-deck-grid{grid-template-columns:repeat(5,1fr);}
+
+.game-card{position:relative;width:80px;height:120px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:all .2s;cursor:pointer;overflow:hidden;}
+.game-card:hover .card-actions-overlay{opacity:1;pointer-events:all;}
+.card-actions-overlay{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;z-index:2;}
+.btn-xs{padding:0.25rem 0.5rem;font-size:0.7rem;border-radius:4px;font-weight:700;text-transform:uppercase;}
 
 /* ── Leaderboard ──────────────────────────────────────────────── */
 .lb-tabs{display:flex;gap:.5rem;padding:0 1.25rem;border-bottom:1px solid var(--border)}
