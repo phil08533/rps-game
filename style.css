@@ -89,38 +89,38 @@ body:has(#screen-game.active) .mountain-bg { display: none; }
 */
 .mb-sky {
   background-image: url('images/bg-mountain/sky.png');
-  background-size: auto 100%; background-position: 0 20%;
-  animation: mbSky 600s linear infinite;
+  background-size: auto 150%; background-position: 0 0%;
+  animation: mbSky 1000s linear infinite;
 }
 /* Big red mountains — tallest ground layer, furthest back */
 .mb-mountains {
   background-image: url('images/bg-mountain/mountains.png');
-  background-size: auto 55%; background-position: 0 55%;
-  animation: mbMtn 700s linear infinite;
+  background-size: auto 55%; background-position: 0 100%;
+  animation: mbMtn 360s linear infinite;
 }
 /* Wispy far clouds — shifted down 50% */
 .mb-far-clouds {
   background-image: url('images/bg-mountain/far-clouds.png');
-  background-size: auto 50%; background-position: 0 40%;
-  animation: mbFarClouds 750s linear infinite;
+  background-size: auto 26%; background-position: 0 62%;
+  animation: mbFarClouds 520s linear infinite;
 }
 /* Orange near clouds — hover over the mountain ridgeline */
 .mb-near-clouds {
   background-image: url('images/bg-mountain/near-clouds.png');
-  background-size: auto 90%; background-position: 0 70%;
-  animation: mbNearClouds 800s linear infinite;
+  background-size: auto 46%; background-position: 0 20%;
+  animation: mbNearClouds 260s linear infinite;
 }
 /* Spikey mountains — right behind trees (80% rule: top at 56%) */
 .mb-far-mountains {
   background-image: url('images/bg-mountain/far-mountains.png');
-  background-size: auto 80%; background-position: 0 100%;
-  animation: mbFarMtn 900s linear infinite;
+  background-size: auto 44%; background-position: 0 100%;
+  animation: mbFarMtn 440s linear infinite;
 }
 /* Trees — frontmost ground layer (80% rule: top at 65%) */
 .mb-trees {
   background-image: url('images/bg-mountain/trees.png');
-  background-size: auto 70%; background-position: 0 100%;
-  animation: mbTrees 1000s linear infinite;
+  background-size: auto 35%; background-position: 0 100%;
+  animation: mbTrees 560s linear infinite;
 }
 
 @keyframes mbSky       { from{background-position:0 0%}   to{background-position:-12000px 0%} }
@@ -175,17 +175,17 @@ body:has(#screen-game.active) .wasteland-bg { display: block; }
 .wb-back {
   background-image: url('images/bg-wasteland/back.png');
   background-size: auto 100%; background-position: 0 top;
-  animation: wbBack 400s linear infinite;
+  animation: wbBack 800s linear infinite;
 }
 .wb-middle {
   background-image: url('images/bg-wasteland/middle.png');
   background-size: auto 52%; background-position: 0 100%;
-  animation: wbMiddle 200s linear infinite;
+  animation: wbMiddle 400s linear infinite;
 }
 .wb-near {
   background-image: url('images/bg-wasteland/near.png');
   background-size: auto 62%; background-position: 0 100%;
-  animation: wbNear 150s linear infinite;
+  animation: wbNear 300s linear infinite;
 }
 @keyframes wbBack   { from{background-position:0 0%}   to{background-position:-8000px 0%} }
 @keyframes wbMiddle { from{background-position:0 100%} to{background-position:-9000px 100%} }
